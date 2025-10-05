@@ -1,0 +1,6 @@
+export { default as ChatIcon } from './ChatIcon'
+export { default as DetailsIcon } from './DetailsIcon'
+export { default as GroupIcon } from './GroupIcon'
+export { default as UserIcon } from './UserIcon'
+export { default as SparkleIcon } from './SparkleIcon'
+export { default as LogoIcon } from './LogoIcon'
