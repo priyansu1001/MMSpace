@@ -42,7 +42,7 @@ const LoginPage = () => {
                 <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-purple-400/20 to-pink-600/20 rounded-full blur-3xl"></div>
             </div>
 
-            <div className="relative max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="relative max-w-md w-full max-h-[90vh] overflow-y-auto rounded-2xl">
                 {/* Login Card */}
                 <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20 dark:border-slate-700/50 p-6 animate-fadeIn">
                     {/* Header */}
@@ -164,8 +164,8 @@ const LoginPage = () => {
                 </div>
 
                 {/* Footer */}
-                <div className="text-center mt-4">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                <div className="text-center mt-4 rounded-3xl">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 rounded-lg">
                         © 2024 MMSpace. All rights reserved.
                     </p>
                 </div>
