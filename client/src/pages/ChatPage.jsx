@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
@@ -59,6 +59,11 @@ const ModernChatPage = () => {
                 socket.on('newMessage', handleNewMessage)
                 console.log('Socket message listener attached')
 
+                // Listen for new announcements
+                socket.off('newAnnouncement', handleNewAnnouncement)
+                socket.on('newAnnouncement', handleNewAnnouncement)
+                console.log('Socket announcement listener attached')
+
                 return () => {
                     if (conversationType === 'individual') {
                         const actualId = selectedConversation._id.replace('individual_', '')
@@ -67,6 +72,7 @@ const ModernChatPage = () => {
                         leaveGroup(selectedConversation._id)
                     }
                     socket.off('newMessage', handleNewMessage)
+                    socket.off('newAnnouncement', handleNewAnnouncement)
                 }
             }
         }
@@ -262,6 +268,26 @@ const ModernChatPage = () => {
         })
     }
 
+    const handleNewAnnouncement = (announcement) => {
+        console.log('=== NEW ANNOUNCEMENT RECEIVED ===')
+        console.log('Announcement:', announcement)
+        
+        setAnnouncements(prev => {
+            // Check if announcement already exists to prevent duplicates
+            const announcementExists = prev.some(ann => ann._id === announcement._id)
+            if (announcementExists) {
+                console.log('Announcement already exists, skipping')
+                return prev
+            }
+
+            console.log('Adding new announcement')
+            return [announcement, ...prev] // Add to beginning of array
+        })
+        
+        // Show toast notification for new announcement
+        toast.success(`New announcement: ${announcement.title}`)
+    }
+
     const sendMessage = async (e) => {
         e.preventDefault()
         if (!newMessage.trim() || !selectedConversation || isSending) return
@@ -381,14 +407,13 @@ const ModernChatPage = () => {
                             <h1 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-200 bg-clip-text text-transparent">
                                 Messages
                             </h1>
-                            {user.role === 'mentor' && (
+                            (
                                 <button
                                     onClick={() => setShowCreateChat(true)}
                                     className="p-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-300"
                                 >
                                     <Plus className="h-4 w-4" />
                                 </button>
-                            )}
                         </div>
 
                         {/* Tab Navigation */}
@@ -403,7 +428,7 @@ const ModernChatPage = () => {
                                 <MessageSquare className="h-4 w-4 mr-2" />
                                 Chats
                             </button>
-                            {user.role === 'mentor' && (
+                            (
                                 <button
                                     onClick={() => setActiveTab('announcements')}
                                     className={`flex-1 flex items-center justify-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'announcements'
@@ -414,7 +439,6 @@ const ModernChatPage = () => {
                                     <Megaphone className="h-4 w-4 mr-2" />
                                     Announcements
                                 </button>
-                            )}
                         </div>
                     </div>
 
@@ -468,36 +492,34 @@ const ModernChatPage = () => {
                                                 >
                                                     <X className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                                                 </button>
-                                            )}
                                         </div>
                                     </div>
                                 ))}
-                            </div>
-                        ) : (
+                            </div>                        ) : (
                             <div className="p-4">
                                 <div className="space-y-4">
-                                    {/* Announcement Input */}
-                                    <div className="bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl p-4">
-                                        <h3 className="font-semibold text-slate-800 dark:text-white mb-3">
-                                            Create Announcement
-                                        </h3>
-                                        <textarea
-                                            value={newAnnouncement}
-                                            onChange={(e) => setNewAnnouncement(e.target.value)}
-                                            placeholder="Type your announcement..."
-                                            className="w-full bg-white/50 dark:bg-slate-600/50 border border-white/20 dark:border-slate-600/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-slate-800 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 resize-none"
-                                            rows="3"
-                                        />
-                                        <button
-                                            onClick={sendAnnouncement}
-                                            disabled={!newAnnouncement.trim()}
-                                            className="mt-3 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all duration-300"
-                                        >
-                                            Send Announcement
-                                        </button>
-                                    </div>
+                                    {user.role === 'mentor' && (
+                                        <div className="bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl p-4">
+                                            <h3 className="font-semibold text-slate-800 dark:text-white mb-3">
+                                                Create Announcement
+                                            </h3>
+                                            <textarea
+                                                value={newAnnouncement}
+                                                onChange={(e) => setNewAnnouncement(e.target.value)}
+                                                placeholder="Type your announcement..."
+                                                className="w-full bg-white/50 dark:bg-slate-600/50 border border-white/20 dark:border-slate-600/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-slate-800 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 resize-none"
+                                                rows="3"
+                                            />
+                                            <button
+                                                onClick={sendAnnouncement}
+                                                disabled={!newAnnouncement.trim()}
+                                                className="mt-3 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all duration-300"
+                                            >
+                                                Send Announcement
+                                            </button>
+                                        </div>
+                                    )}
 
-                                    {/* Recent Announcements */}
                                     <div className="space-y-3">
                                         <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 px-2">
                                             Recent Announcements
@@ -585,8 +607,9 @@ const ModernChatPage = () => {
                                         </button>
                                         <button className="p-2 rounded-full bg-slate-100/50 dark:bg-slate-700/50 hover:bg-slate-200/50 dark:hover:bg-slate-600/50 transition-colors duration-200">
                                             <MoreVertical className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                                        </button>
-                                    </div>
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -688,8 +711,9 @@ const ModernChatPage = () => {
                                             className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-600/50 transition-colors duration-200"
                                         >
                                             <Smile className="h-5 w-5 text-slate-400" />
-                                        </button>
-                                    </div>
+                                            </button>
+                                        </div>
+                                    )}
 
                                     <button
                                         type="submit"
@@ -758,3 +782,7 @@ const ModernChatPage = () => {
 }
 
 export default ModernChatPage
+
+
+
+
