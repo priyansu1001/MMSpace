@@ -5,13 +5,12 @@ const http = require('http');
 const socketIo = require('socket.io');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
+const dbErrorHandler = require('./middleware/dbErrorHandler');
+const dbConnectionCheck = require('./middleware/dbConnectionCheck');
 const rateLimit = require('express-rate-limit');
 
 // Load environment variables
 dotenv.config();
-
-// Connect to database
-connectDB();
 
 const app = express();
 const server = http.createServer(app);
@@ -24,10 +23,18 @@ const io = socketIo(server, {
     }
 });
 
-// Rate limiting
+// Very lenient rate limiting for development
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100 // limit each IP to 100 requests per windowMs
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 1000, // Very high limit for development
+    message: { message: 'Too many requests, please try again later' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: false, // Count all requests
+    skip: (req) => {
+        // Skip rate limiting for health checks and in development
+        return req.path === '/api/health' || process.env.NODE_ENV === 'development';
+    }
 });
 
 // Middleware
@@ -41,6 +48,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve static files
 app.use('/uploads', express.static('uploads'));
+
+// Check database connection before processing requests
+app.use(dbConnectionCheck);
 
 // Make io accessible to routes
 app.use((req, res, next) => {
@@ -60,18 +70,51 @@ app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/announcements', require('./routes/announcementRoutes'));
 
 // Health check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', message: 'Server is running' });
+app.get('/api/health', async (req, res) => {
+    try {
+        // Check database connection
+        const mongoose = require('mongoose');
+        const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+
+        res.json({
+            status: 'OK',
+            message: 'Server is running',
+            database: dbStatus,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'ERROR',
+            message: 'Health check failed',
+            error: error.message
+        });
+    }
 });
 
 // Socket.io connection handling
 require('./socket/socketHandlers')(io);
 
-// Error handling middleware
+// Error handling middleware (order matters)
+app.use(dbErrorHandler);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+// Start server only after database connection
+const startServer = async () => {
+    try {
+        // Connect to database first
+        await connectDB();
+
+        // Start server after successful database connection
+        server.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+            console.log(`Database connection status: ${require('mongoose').connection.readyState === 1 ? 'Connected' : 'Disconnected'}`);
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+};
+
+startServer();

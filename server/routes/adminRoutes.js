@@ -5,7 +5,7 @@ const Mentor = require('../models/Mentor');
 const Mentee = require('../models/Mentee');
 const Group = require('../models/Group');
 const LeaveRequest = require('../models/LeaveRequest');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 
 const router = express.Router();
