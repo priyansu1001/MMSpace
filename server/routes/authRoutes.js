@@ -13,10 +13,14 @@ const router = express.Router();
 // More lenient rate limiting for auth routes
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // limit each IP to 10 login attempts per windowMs
+    max: 50, // Increased limit to 50 login attempts per windowMs
     message: { message: 'Too many login attempts, please try again later' },
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => {
+        // Skip rate limiting for health checks and in development
+        return process.env.NODE_ENV === 'development' || req.path === '/health';
+    }
 });
 
 // Generate JWT Token
@@ -115,15 +119,21 @@ router.post('/login', authLimiter, [
     body('email').isEmail().normalizeEmail(),
     body('password').exists()
 ], async (req, res) => {
+    const startTime = Date.now();
     try {
+        console.log(`[${new Date().toISOString()}] Login request received`);
+        
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             console.log('Login validation errors:', errors.array());
-            return res.status(400).json({ errors: errors.array() });
+            return res.status(400).json({ 
+                message: 'Validation failed',
+                errors: errors.array() 
+            });
         }
 
         const { email, password } = req.body;
-        console.log(`Login attempt for email: ${email}`);
+        console.log(`Login attempt for email: ${email} from IP: ${req.ip}`);
 
         // Check if user exists
         const user = await User.findOne({ email });
@@ -132,6 +142,8 @@ router.post('/login', authLimiter, [
             return res.status(400).json({ message: 'Invalid credentials' });
         }
 
+        console.log(`User found: ${user.email}, Role: ${user.role}, Active: ${user.isActive}`);
+
         // Check if user is active
         if (!user.isActive) {
             console.log(`Login failed: User account is inactive for email: ${email}`);
@@ -139,23 +151,31 @@ router.post('/login', authLimiter, [
         }
 
         // Check password
+        console.log('Verifying password...');
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
             console.log(`Login failed: Invalid password for email: ${email}`);
             return res.status(400).json({ message: 'Invalid credentials' });
         }
 
+        console.log('Password verified successfully');
+
         // Update last login with retry mechanism
         try {
             user.lastLogin = new Date();
             await user.save();
+            console.log('Last login updated successfully');
         } catch (saveError) {
             console.error('Error updating last login:', saveError);
             // Don't fail the login if we can't update lastLogin
         }
 
+        // Generate token
+        console.log('Generating JWT token...');
         const token = generateToken(user._id);
-        console.log(`Login successful for email: ${email}`);
+        
+        const loginTime = Date.now() - startTime;
+        console.log(`Login successful for email: ${email} (took ${loginTime}ms)`);
 
         res.json({
             token,
@@ -166,8 +186,13 @@ router.post('/login', authLimiter, [
             }
         });
     } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ message: 'Server error during login' });
+        const loginTime = Date.now() - startTime;
+        console.error(`Login error after ${loginTime}ms:`, error);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ 
+            message: 'Server error during login',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 });
 

@@ -30,13 +30,15 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         console.log('API Error:', error.response?.status, error.response?.data);
+        console.log('Request URL:', error.config?.url);
+        console.log('Request method:', error.config?.method);
 
         if (error.response?.status === 401) {
             console.log('Unauthorized access, clearing token and redirecting to login');
             localStorage.removeItem('token');
 
-            // Only redirect if not already on login page
-            if (!window.location.pathname.includes('/login')) {
+            // Only redirect if not already on login page and not a login request
+            if (!window.location.pathname.includes('/login') && !error.config?.url?.includes('/auth/login')) {
                 window.location.href = '/login';
             }
         }
@@ -44,6 +46,17 @@ api.interceptors.response.use(
         // Handle network errors
         if (!error.response) {
             console.error('Network error:', error.message);
+            console.error('This might be a server connection issue');
+            
+            // Don't redirect on network errors during login
+            if (error.config?.url?.includes('/auth/login')) {
+                error.isNetworkError = true;
+            }
+        }
+
+        // Handle rate limiting
+        if (error.response?.status === 429) {
+            console.error('Rate limited:', error.response.data);
         }
 
         return Promise.reject(error);
