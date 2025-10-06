@@ -1,6 +1,6 @@
 const express = require('express');
 const Announcement = require('../models/Announcement');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 
@@ -146,6 +146,71 @@ router.put('/:id/read', auth, async (req, res) => {
         res.json({ message: 'Announcement marked as read' });
     } catch (error) {
         console.error('Error marking announcement as read:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST /api/announcements/:id/comments
+// @desc    Add comment to announcement
+// @access  Private
+router.post('/:id/comments', auth, async (req, res) => {
+    try {
+        const { content } = req.body;
+
+        if (!content || !content.trim()) {
+            return res.status(400).json({ message: 'Comment content is required' });
+        }
+
+        const announcement = await Announcement.findById(req.params.id);
+
+        if (!announcement) {
+            return res.status(404).json({ message: 'Announcement not found' });
+        }
+
+        const comment = {
+            userId: req.user._id,
+            userRole: req.user.role,
+            content: content.trim(),
+            createdAt: new Date()
+        };
+
+        announcement.comments.push(comment);
+        await announcement.save();
+
+        // Populate the comment with user info
+        await announcement.populate('comments.userId', 'email');
+
+        const newComment = announcement.comments[announcement.comments.length - 1];
+
+        // Emit socket event for real-time comments
+        req.io.emit('newAnnouncementComment', {
+            announcementId: req.params.id,
+            comment: newComment
+        });
+
+        res.status(201).json(newComment);
+    } catch (error) {
+        console.error('Error adding comment:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET /api/announcements/:id/comments
+// @desc    Get announcement comments
+// @access  Private
+router.get('/:id/comments', auth, async (req, res) => {
+    try {
+        const announcement = await Announcement.findById(req.params.id)
+            .populate('comments.userId', 'email role')
+            .select('comments');
+
+        if (!announcement) {
+            return res.status(404).json({ message: 'Announcement not found' });
+        }
+
+        res.json(announcement.comments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)));
+    } catch (error) {
+        console.error('Error fetching comments:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

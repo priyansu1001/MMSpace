@@ -1,7 +1,7 @@
 const express = require('express');
 const Mentee = require('../models/Mentee');
 const LeaveRequest = require('../models/LeaveRequest');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 
 const router = express.Router();
