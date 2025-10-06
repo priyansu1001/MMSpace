@@ -48,7 +48,14 @@ router.post('/', auth, roleCheck(['mentee']), async (req, res) => {
 router.get('/mentee', auth, roleCheck(['mentee']), async (req, res) => {
     try {
         const mentee = await Mentee.findOne({ userId: req.user._id });
-        const leaves = await LeaveRequest.find({ menteeId: mentee._id })
+        const { status } = req.query;
+
+        let query = { menteeId: mentee._id };
+        if (status) {
+            query.status = status;
+        }
+
+        const leaves = await LeaveRequest.find(query)
             .sort({ createdAt: -1 });
 
         res.json(leaves);

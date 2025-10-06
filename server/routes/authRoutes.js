@@ -176,12 +176,14 @@ router.post('/login', authLimiter, [
 // @access  Private
 router.get('/me', auth, async (req, res) => {
     try {
+        console.log('GET /auth/me - User:', req.user.email, 'Role:', req.user.role);
         let profile;
 
         if (req.user.role === 'admin') {
             profile = await Admin.findOne({ userId: req.user._id });
         } else if (req.user.role === 'mentor') {
             profile = await Mentor.findOne({ userId: req.user._id });
+            console.log('Mentor profile found:', profile ? profile._id : 'null');
         } else {
             profile = await Mentee.findOne({ userId: req.user._id }).populate('mentorId');
         }
@@ -195,7 +197,7 @@ router.get('/me', auth, async (req, res) => {
             profile
         });
     } catch (error) {
-        console.error(error);
+        console.error('Error in /auth/me:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

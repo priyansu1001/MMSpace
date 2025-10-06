@@ -92,25 +92,41 @@ const ModernChatPage = () => {
                         type: 'individual',
                         displayName: mentee.fullName,
                         subtitle: `${mentee.class}-${mentee.section}`,
-                        menteeId: mentee._id,
                         color: '#10B981'
                     }
                 })
                 conversationList = [...conversationList, ...individualChats]
 
             } else {
-                // For mentees, show chat with their mentor
+                // For mentees, show groups they're part of and chat with their mentor
+                try {
+                    // Fetch groups for mentee
+                    const groupsResponse = await api.get('/groups/mentee')
+                    const groups = groupsResponse.data.map(group => ({
+                        ...group,
+                        type: 'group',
+                        displayName: group.name,
+                        subtitle: `${group.menteeIds?.length || 0} members • ${group.mentorId?.fullName || 'Mentor'}`
+                    }))
+                    conversationList = [...groups]
+                } catch (error) {
+                    console.error('Error fetching mentee groups:', error)
+                    // Continue even if groups fetch fails
+                }
+
+                // Add individual chat with mentor
                 if (profile?.mentorId) {
                     const mentorId = profile.mentorId._id || profile.mentorId
                     const conversationId = `individual_${profile._id}`
-                    conversationList = [{
+                    const mentorChat = {
                         _id: conversationId,
                         type: 'individual',
                         displayName: profile.mentorId.fullName || 'Your Mentor',
                         subtitle: profile.mentorId.department || 'Mentor',
                         mentorId: mentorId,
                         color: '#3B82F6'
-                    }]
+                    }
+                    conversationList = [...conversationList, mentorChat]
                 }
             }
 

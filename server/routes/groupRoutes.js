@@ -37,15 +37,55 @@ router.post('/', auth, roleCheck(['mentor']), async (req, res) => {
 // @access  Private (Mentor only)
 router.get('/', auth, roleCheck(['mentor']), async (req, res) => {
     try {
+        console.log('GET /api/groups - User:', req.user.email, 'Role:', req.user.role);
+        
         const mentor = await Mentor.findOne({ userId: req.user._id });
+        console.log('Found mentor:', mentor ? mentor._id : 'null');
+        
+        if (!mentor) {
+            console.log('No mentor profile found for user:', req.user._id);
+            return res.status(404).json({ message: 'Mentor profile not found' });
+        }
+        
         const groups = await Group.find({
             mentorId: mentor._id,
             isArchived: false
         }).populate('menteeIds', 'fullName studentId class section');
-
+        
+        console.log('Found groups:', groups.length);
         res.json(groups);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Error fetching groups:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+});
+
+// @route   GET /api/groups/mentee
+// @desc    Get groups for mentee (groups where mentee is a member)
+// @access  Private (Mentee only)
+router.get('/mentee', auth, roleCheck(['mentee']), async (req, res) => {
+    try {
+        console.log('GET /api/groups/mentee - User:', req.user.email, 'Role:', req.user.role);
+        
+        const mentee = await Mentee.findOne({ userId: req.user._id });
+        console.log('Found mentee:', mentee ? mentee._id : 'null');
+        
+        if (!mentee) {
+            console.log('No mentee profile found for user:', req.user._id);
+            return res.status(404).json({ message: 'Mentee profile not found' });
+        }
+        
+        const groups = await Group.find({
+            menteeIds: mentee._id,
+            isArchived: false
+        }).populate('mentorId', 'fullName department')
+          .populate('menteeIds', 'fullName studentId class section');
+        
+        console.log('Found groups for mentee:', groups.length);
+        res.json(groups);
+    } catch (error) {
+        console.error('Error fetching mentee groups:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 });
 

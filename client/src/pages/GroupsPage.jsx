@@ -34,9 +34,13 @@ const GroupsPage = () => {
 
     const fetchGroups = async () => {
         try {
+            console.log('Fetching groups...');
             const response = await api.get('/groups')
+            console.log('Groups response:', response.data);
             setGroups(response.data)
         } catch (error) {
+            console.error('Error fetching groups:', error);
+            console.error('Error response:', error.response?.data);
             toast.error('Failed to fetch groups')
         } finally {
             setLoading(false)
@@ -45,7 +49,9 @@ const GroupsPage = () => {
 
     const fetchMentees = async () => {
         try {
+            console.log('Fetching mentees...');
             const response = await api.get('/mentors/mentees')
+            console.log('Mentees response:', response.data);
             setMentees(response.data)
         } catch (error) {
             console.error('Error fetching mentees:', error)
