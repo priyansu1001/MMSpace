@@ -5,8 +5,10 @@ WORKDIR /usr/src/app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install build/runtime dependencies and utilities (wget used by healthcheck)
+RUN apk add --no-cache ca-certificates wget \
+    && npm ci --only=production \
+    && update-ca-certificates
 
 # Copy source code
 COPY . .
