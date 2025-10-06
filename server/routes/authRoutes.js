@@ -6,17 +6,22 @@ const User = require('../models/User');
 const Admin = require('../models/Admin');
 const Mentor = require('../models/Mentor');
 const Mentee = require('../models/Mentee');
-const auth = require('../middleware/auth');
+const { auth, blacklistToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// More lenient rate limiting for auth routes
+// Very lenient rate limiting for development
 const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // limit each IP to 10 login attempts per windowMs
+    windowMs: 1 * 60 * 1000, // 1 minute window
+    max: 100, // 100 attempts per minute (very lenient for development)
     message: { message: 'Too many login attempts, please try again later' },
     standardHeaders: true,
     legacyHeaders: false,
+    skipSuccessfulRequests: true, // Don't count successful requests
+    skip: (req) => {
+        // Skip rate limiting in development
+        return process.env.NODE_ENV === 'development';
+    }
 });
 
 // Generate JWT Token
@@ -125,8 +130,24 @@ router.post('/login', authLimiter, [
         const { email, password } = req.body;
         console.log(`Login attempt for email: ${email}`);
 
-        // Check if user exists
-        const user = await User.findOne({ email });
+        // Add retry logic for database operations
+        let user;
+        let retries = 3;
+
+        while (retries > 0) {
+            try {
+                user = await User.findOne({ email });
+                break;
+            } catch (dbError) {
+                retries--;
+                if (retries === 0) {
+                    console.error('Database error during login:', dbError);
+                    return res.status(500).json({ message: 'Database connection error. Please try again.' });
+                }
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+        }
+
         if (!user) {
             console.log(`Login failed: User not found for email: ${email}`);
             return res.status(400).json({ message: 'Invalid credentials' });
@@ -146,12 +167,21 @@ router.post('/login', authLimiter, [
         }
 
         // Update last login with retry mechanism
-        try {
-            user.lastLogin = new Date();
-            await user.save();
-        } catch (saveError) {
-            console.error('Error updating last login:', saveError);
-            // Don't fail the login if we can't update lastLogin
+        retries = 3;
+        while (retries > 0) {
+            try {
+                await User.findByIdAndUpdate(user._id, {
+                    lastLogin: new Date()
+                }, { new: true });
+                break;
+            } catch (saveError) {
+                retries--;
+                if (retries === 0) {
+                    console.error('Error updating last login:', saveError);
+                    // Don't fail the login if we can't update lastLogin
+                }
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
         }
 
         const token = generateToken(user._id);
@@ -177,13 +207,28 @@ router.post('/login', authLimiter, [
 router.get('/me', auth, async (req, res) => {
     try {
         let profile;
+        let retries = 3;
 
-        if (req.user.role === 'admin') {
-            profile = await Admin.findOne({ userId: req.user._id });
-        } else if (req.user.role === 'mentor') {
-            profile = await Mentor.findOne({ userId: req.user._id });
-        } else {
-            profile = await Mentee.findOne({ userId: req.user._id }).populate('mentorId');
+        while (retries > 0) {
+            try {
+                if (req.user.role === 'admin') {
+                    profile = await Admin.findOne({ userId: req.user._id }).lean();
+                } else if (req.user.role === 'mentor') {
+                    profile = await Mentor.findOne({ userId: req.user._id }).lean();
+                } else {
+                    profile = await Mentee.findOne({ userId: req.user._id })
+                        .populate('mentorId', 'fullName department phone')
+                        .lean();
+                }
+                break;
+            } catch (dbError) {
+                retries--;
+                if (retries === 0) {
+                    console.error('Database error in /me route:', dbError);
+                    return res.status(500).json({ message: 'Database connection error' });
+                }
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
         }
 
         res.json({
@@ -195,8 +240,48 @@ router.get('/me', auth, async (req, res) => {
             profile
         });
     } catch (error) {
-        console.error(error);
+        console.error('Error in /me route:', error);
         res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST /api/auth/logout
+// @desc    Logout user (blacklist token)
+// @access  Private
+router.post('/logout', auth, async (req, res) => {
+    try {
+        // Blacklist the current token
+        blacklistToken(req.token);
+
+        res.json({ message: 'Logged out successfully' });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({ message: 'Server error during logout' });
+    }
+});
+
+// @route   POST /api/auth/refresh
+// @desc    Refresh JWT token
+// @access  Private
+router.post('/refresh', auth, async (req, res) => {
+    try {
+        // Generate new token
+        const newToken = generateToken(req.user._id);
+
+        // Blacklist old token
+        blacklistToken(req.token);
+
+        res.json({
+            token: newToken,
+            user: {
+                id: req.user._id,
+                email: req.user.email,
+                role: req.user.role
+            }
+        });
+    } catch (error) {
+        console.error('Token refresh error:', error);
+        res.status(500).json({ message: 'Server error during token refresh' });
     }
 });
 

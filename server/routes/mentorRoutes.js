@@ -3,8 +3,9 @@ const Mentor = require('../models/Mentor');
 const Mentee = require('../models/Mentee');
 const Group = require('../models/Group');
 const LeaveRequest = require('../models/LeaveRequest');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
+const { safeFindOne, safeFind, safeCount, executeMultipleWithRetry } = require('../utils/dbUtils');
 
 const router = express.Router();
 
@@ -13,13 +14,14 @@ const router = express.Router();
 // @access  Private (Mentor only)
 router.get('/profile', auth, roleCheck(['mentor']), async (req, res) => {
     try {
-        const mentor = await Mentor.findOne({ userId: req.user._id });
+        const mentor = await safeFindOne(Mentor, { userId: req.user._id });
         if (!mentor) {
             return res.status(404).json({ message: 'Mentor profile not found' });
         }
         res.json(mentor);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Error fetching mentor profile:', error);
+        res.status(500).json({ message: 'Failed to fetch mentor profile' });
     }
 });
 
@@ -28,11 +30,19 @@ router.get('/profile', auth, roleCheck(['mentor']), async (req, res) => {
 // @access  Private (Mentor only)
 router.get('/mentees', auth, roleCheck(['mentor']), async (req, res) => {
     try {
-        const mentor = await Mentor.findOne({ userId: req.user._id });
-        const mentees = await Mentee.find({ mentorId: mentor._id }).populate('userId', 'email');
+        const mentor = await safeFindOne(Mentor, { userId: req.user._id });
+        if (!mentor) {
+            return res.status(404).json({ message: 'Mentor profile not found' });
+        }
+
+        const mentees = await safeFind(Mentee, { mentorId: mentor._id }, {
+            populate: 'userId'
+        });
+
         res.json(mentees);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Error fetching mentees:', error);
+        res.status(500).json({ message: 'Failed to fetch mentees' });
     }
 });
 
@@ -41,26 +51,47 @@ router.get('/mentees', auth, roleCheck(['mentor']), async (req, res) => {
 // @access  Private (Mentor only)
 router.get('/dashboard', auth, roleCheck(['mentor']), async (req, res) => {
     try {
-        const mentor = await Mentor.findOne({ userId: req.user._id });
+        let retries = 3;
+        let mentor, totalMentees, totalGroups, pendingLeaves, recentLeaves, mentees;
 
-        const totalMentees = await Mentee.countDocuments({ mentorId: mentor._id });
-        const totalGroups = await Group.countDocuments({ mentorId: mentor._id, isArchived: false });
-        const pendingLeaves = await LeaveRequest.countDocuments({
-            mentorId: mentor._id,
-            status: 'pending'
-        });
+        while (retries > 0) {
+            try {
+                mentor = await Mentor.findOne({ userId: req.user._id }).lean();
 
-        // Get recent leave requests
-        const recentLeaves = await LeaveRequest.find({ mentorId: mentor._id })
-            .populate('menteeId', 'fullName studentId')
-            .sort({ createdAt: -1 })
-            .limit(5);
+                if (!mentor) {
+                    return res.status(404).json({ message: 'Mentor profile not found' });
+                }
 
-        // Get all mentees with detailed information
-        const mentees = await Mentee.find({ mentorId: mentor._id })
-            .populate('userId', 'email lastLogin')
-            .sort({ fullName: 1 })
-            .limit(10);
+                // Execute all queries with proper error handling
+                [totalMentees, totalGroups, pendingLeaves, recentLeaves, mentees] = await Promise.all([
+                    Mentee.countDocuments({ mentorId: mentor._id }),
+                    Group.countDocuments({ mentorId: mentor._id, isArchived: false }),
+                    LeaveRequest.countDocuments({
+                        mentorId: mentor._id,
+                        status: 'pending'
+                    }),
+                    LeaveRequest.find({ mentorId: mentor._id })
+                        .populate('menteeId', 'fullName studentId')
+                        .sort({ createdAt: -1 })
+                        .limit(5)
+                        .lean(),
+                    Mentee.find({ mentorId: mentor._id })
+                        .populate('userId', 'email lastLogin')
+                        .sort({ fullName: 1 })
+                        .limit(10)
+                        .lean()
+                ]);
+
+                break;
+            } catch (dbError) {
+                retries--;
+                if (retries === 0) {
+                    console.error('Database error in mentor dashboard:', dbError);
+                    return res.status(500).json({ message: 'Database connection error' });
+                }
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+        }
 
         res.json({
             stats: {
@@ -72,6 +103,7 @@ router.get('/dashboard', auth, roleCheck(['mentor']), async (req, res) => {
             mentees
         });
     } catch (error) {
+        console.error('Error in mentor dashboard:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
