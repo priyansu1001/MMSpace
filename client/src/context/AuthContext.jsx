@@ -84,27 +84,47 @@ export const AuthProvider = ({ children }) => {
     const login = async (email, password) => {
         try {
             console.log('Attempting login with:', email)
+            
+            // Clear any existing token first
+            localStorage.removeItem('token')
+            
             const response = await api.post('/auth/login', { email, password })
-            console.log('Login response:', response.data)
+            console.log('Login response received')
+
+            if (!response.data.token) {
+                throw new Error('No token received from server')
+            }
 
             // Store token first
             localStorage.setItem('token', response.data.token)
+            console.log('Token stored in localStorage')
 
             // Load full profile with retry mechanism
-            let profileResponse;
-            let retries = 3;
+            let profileResponse
+            let retries = 3
 
             while (retries > 0) {
                 try {
+                    console.log(`Fetching profile... (attempt ${4 - retries})`)
                     profileResponse = await api.get('/auth/me')
-                    console.log('Profile response:', profileResponse.data)
-                    break;
+                    console.log('Profile response received')
+                    break
                 } catch (profileError) {
-                    retries--;
-                    if (retries === 0) throw profileError;
-                    console.log(`Profile fetch failed, retrying... (${retries} attempts left)`)
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    retries--
+                    console.error(`Profile fetch failed:`, profileError.response?.data || profileError.message)
+                    
+                    if (retries === 0) {
+                        console.error('All profile fetch attempts failed')
+                        throw profileError
+                    }
+                    
+                    console.log(`Retrying profile fetch... (${retries} attempts left)`)
+                    await new Promise(resolve => setTimeout(resolve, 1000))
                 }
+            }
+
+            if (!profileResponse.data.user) {
+                throw new Error('No user data received from profile endpoint')
             }
 
             dispatch({
@@ -116,29 +136,54 @@ export const AuthProvider = ({ children }) => {
                 }
             })
 
+            console.log('Login completed successfully for:', profileResponse.data.user.email)
             return response.data
         } catch (error) {
             console.error('Login error:', error)
             console.error('Error response:', error.response?.data)
+            
             // Clean up on error
             localStorage.removeItem('token')
             dispatch({ type: 'AUTH_ERROR' })
-            throw error
+            
+            // Provide more specific error messages
+            if (error.response?.status === 401) {
+                throw new Error(error.response.data.message || 'Invalid credentials')
+            } else if (error.response?.status === 429) {
+                throw new Error('Too many login attempts. Please try again later.')
+            } else if (error.response?.status >= 500) {
+                throw new Error('Server error. Please try again later.')
+            } else if (error.code === 'ECONNREFUSED' || !error.response) {
+                throw new Error('Cannot connect to server. Please check your connection.')
+            } else {
+                throw new Error(error.message || 'Login failed. Please try again.')
+            }
         }
     }
 
     const logout = () => {
-        console.log('Logging out user');
-        // Clear any pending requests
-        localStorage.removeItem('token');
-        dispatch({ type: 'LOGOUT' });
+        console.log('Logging out user')
+        localStorage.removeItem('token')
+        dispatch({ type: 'LOGOUT' })
+    }
+
+    const forceReauth = async () => {
+        console.log('Forcing re-authentication due to token issues')
+        localStorage.removeItem('token')
+        dispatch({ type: 'AUTH_ERROR' })
+        
+        // Small delay to ensure state is updated
+        setTimeout(() => {
+            window.location.href = '/login'
+        }, 100)
     }
 
     const value = {
         ...state,
         login,
         logout,
-        loadUser
+        loadUser,
+        forceReauth
     }
 
     return (

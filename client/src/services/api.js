@@ -29,17 +29,40 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        console.log('API Error:', error.response?.status, error.response?.data);
-        console.log('Request URL:', error.config?.url);
-        console.log('Request method:', error.config?.method);
+        console.error('=== API ERROR DETAILS ===');
+        console.error('Status:', error.response?.status);
+        console.error('Data:', error.response?.data);
+        console.error('Request URL:', error.config?.url);
+        console.error('Request method:', error.config?.method);
+        console.error('Request data:', error.config?.data);
+        console.error('Request headers:', error.config?.headers);
 
         if (error.response?.status === 401) {
-            console.log('Unauthorized access, clearing token and redirecting to login');
-            localStorage.removeItem('token');
+            console.error('Unauthorized access detected');
+            console.error('Error code:', error.response?.data?.code);
+            console.error('Current URL:', window.location.pathname);
+            
+            // Don't clear token immediately for certain operations to prevent cascade
+            const isSensitiveOperation = error.config?.url?.includes('/messages') || 
+                                       error.config?.url?.includes('/groups');
+            
+            if (isSensitiveOperation) {
+                console.warn('401 error during sensitive operation - not clearing token immediately');
+                console.warn('User should manually logout/login if issues persist');
+                // Add a flag to the error so components can handle it appropriately
+                error.isAuthError = true;
+                error.shouldNotClearToken = true;
+            } else {
+                console.log('Clearing token and redirecting to login');
+                localStorage.removeItem('token');
 
-            // Only redirect if not already on login page and not a login request
-            if (!window.location.pathname.includes('/login') && !error.config?.url?.includes('/auth/login')) {
-                window.location.href = '/login';
+                // Only redirect if not already on login page and not a login request
+                if (!window.location.pathname.includes('/login') && !error.config?.url?.includes('/auth/login')) {
+                    // Add a small delay to prevent race conditions
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 100);
+                }
             }
         }
 

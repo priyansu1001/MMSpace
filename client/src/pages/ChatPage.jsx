@@ -19,6 +19,8 @@ const ModernChatPage = () => {
     const [newMessage, setNewMessage] = useState('')
     const [newAnnouncement, setNewAnnouncement] = useState('')
     const [loading, setLoading] = useState(true)
+    const [isSending, setIsSending] = useState(false)
+    const [lastMessageTime, setLastMessageTime] = useState(0)
     const [conversations, setConversations] = useState([])
     const [selectedConversation, setSelectedConversation] = useState(null)
     const [conversationType, setConversationType] = useState('group')
@@ -37,19 +39,25 @@ const ModernChatPage = () => {
         if (selectedConversation) {
             fetchMessages()
             if (socket) {
-                let roomId = selectedConversation._id
-
-                // For individual chats, only join the conversation room
+                console.log('=== SOCKET SETUP DEBUG ===')
+                console.log('Selected conversation:', selectedConversation)
+                console.log('Conversation type:', conversationType)
+                console.log('Socket connected:', !!socket)
+                
                 if (conversationType === 'individual') {
-                    roomId = selectedConversation._id.replace('individual_', '')
-                    joinGroup(roomId) // Join the conversation room
+                    // For individual chats, join using the user ID
+                    const userId = selectedConversation._id.replace('individual_', '')
+                    console.log('Joining individual room:', userId)
+                    joinGroup(userId)
                 } else {
-                    joinGroup(roomId) // Join group room
+                    console.log('Joining group room:', selectedConversation._id)
+                    joinGroup(selectedConversation._id)
                 }
 
                 // Remove any existing listeners first to prevent duplicates
                 socket.off('newMessage', handleNewMessage)
                 socket.on('newMessage', handleNewMessage)
+                console.log('Socket message listener attached')
 
                 return () => {
                     if (conversationType === 'individual') {
@@ -67,6 +75,18 @@ const ModernChatPage = () => {
     useEffect(() => {
         scrollToBottom()
     }, [messages])
+
+    // Auto-refresh messages every 10 seconds as fallback for socket issues
+    useEffect(() => {
+        if (selectedConversation) {
+            const interval = setInterval(() => {
+                console.log('Auto-refreshing messages...')
+                fetchMessages()
+            }, 10000) // 10 seconds
+
+            return () => clearInterval(interval)
+        }
+    }, [selectedConversation])
 
     const fetchConversations = async () => {
         try {
@@ -205,10 +225,18 @@ const ModernChatPage = () => {
     }
 
     const handleNewMessage = (message) => {
+        console.log('=== NEW MESSAGE RECEIVED ===')
+        console.log('Message:', message)
+        console.log('Current conversation:', selectedConversation?._id)
+        console.log('Message conversation:', message.conversationId)
+        
         setMessages(prev => {
+            console.log('Current messages count:', prev.length)
+            
             // Check if message already exists to prevent duplicates
             const messageExists = prev.some(msg => msg._id === message._id)
             if (messageExists) {
+                console.log('Message already exists, skipping')
                 return prev
             }
 
@@ -222,21 +250,24 @@ const ModernChatPage = () => {
             )
 
             if (optimisticIndex !== -1) {
+                console.log('Replacing optimistic message')
                 // Replace optimistic message with real message
                 const newMessages = [...prev]
                 newMessages[optimisticIndex] = message
                 return newMessages
             }
 
+            console.log('Adding new message to chat')
             return [...prev, message]
         })
     }
 
     const sendMessage = async (e) => {
         e.preventDefault()
-        if (!newMessage.trim() || !selectedConversation) return
+        if (!newMessage.trim() || !selectedConversation || isSending) return
 
         const messageContent = newMessage.trim()
+        setIsSending(true)
         setNewMessage('') // Clear input immediately
 
         // Create optimistic message for immediate display
@@ -265,6 +296,13 @@ const ModernChatPage = () => {
                 content: messageContent
             }
 
+            console.log('=== MESSAGE SENDING DEBUG ===')
+            console.log('Selected conversation:', selectedConversation)
+            console.log('Conversation type:', conversationType)
+            console.log('Actual conversation ID:', actualConversationId)
+            console.log('Message data:', messageData)
+            console.log('API base URL:', import.meta.env.VITE_API_URL || 'http://localhost:5000/api')
+
             const response = await api.post('/messages', messageData)
             console.log('Message sent successfully:', response.data._id)
 
@@ -273,10 +311,33 @@ const ModernChatPage = () => {
                 msg._id === optimisticMessage._id ? response.data : msg
             ))
         } catch (error) {
+            console.error('Message sending error:', error)
+            
             // Remove optimistic message on error
             setMessages(prev => prev.filter(msg => msg._id !== optimisticMessage._id))
-            toast.error('Failed to send message')
-            setNewMessage(messageContent) // Restore message content
+            
+            // Handle different types of errors
+            if (error.response?.status === 401) {
+                if (error.isAuthError && error.shouldNotClearToken) {
+                    toast.error('Authentication issue. Please try logging out and back in.')
+                } else {
+                    toast.error('Session expired. Please login again.')
+                }
+            } else if (error.response?.status === 400) {
+                // Just restore the message content for any validation error
+                setNewMessage(messageContent)
+            } else if (error.response?.status >= 500) {
+                // Server error - restore message content
+                setNewMessage(messageContent)
+            } else if (!error.response) {
+                // Network error - restore message content but don't show error for spam
+                setNewMessage(messageContent)
+            } else {
+                // Any other error - restore message content
+                setNewMessage(messageContent)
+            }
+        } finally {
+            setIsSending(false)
         }
     }
 
@@ -514,9 +575,18 @@ const ModernChatPage = () => {
                                             </p>
                                         </div>
                                     </div>
-                                    <button className="p-2 rounded-full bg-slate-100/50 dark:bg-slate-700/50 hover:bg-slate-200/50 dark:hover:bg-slate-600/50 transition-colors duration-200">
-                                        <MoreVertical className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                                    </button>
+                                    <div className="flex space-x-2">
+                                        <button 
+                                            onClick={fetchMessages}
+                                            className="p-2 rounded-full bg-slate-100/50 dark:bg-slate-700/50 hover:bg-slate-200/50 dark:hover:bg-slate-600/50 transition-colors duration-200"
+                                            title="Refresh messages"
+                                        >
+                                            🔄
+                                        </button>
+                                        <button className="p-2 rounded-full bg-slate-100/50 dark:bg-slate-700/50 hover:bg-slate-200/50 dark:hover:bg-slate-600/50 transition-colors duration-200">
+                                            <MoreVertical className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -623,16 +693,19 @@ const ModernChatPage = () => {
 
                                     <button
                                         type="submit"
-                                        disabled={!newMessage.trim()}
+                                        disabled={!newMessage.trim() || isSending}
                                         className="p-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transform transition-all duration-300 hover:scale-110 disabled:hover:scale-100"
                                     >
-                                        <Send className="h-5 w-5" />
+                                        {isSending ? (
+                                            <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        ) : (
+                                            <Send className="h-5 w-5" />
+                                        )}
                                     </button>
                                 </form>
 
                                 {/* Hidden file input */}
                                 <input
-                                    ref={fileInputRef}
                                     type="file"
                                     accept="image/*"
                                     className="hidden"

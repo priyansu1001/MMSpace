@@ -2,6 +2,7 @@ const express = require('express');
 const Message = require('../models/Message');
 const Group = require('../models/Group');
 const auth = require('../middleware/auth');
+const { messageRateLimit, messageBurstLimit, spamDetection } = require('../middleware/messageRateLimit');
 
 const router = express.Router();
 
@@ -10,35 +11,66 @@ const router = express.Router();
 // @access  Private
 router.post('/', auth, async (req, res) => {
     try {
+        console.log(`[${new Date().toISOString()}] Message send request from user: ${req.user.email}`);
+        console.log('Request body:', req.body);
+
         const { conversationType, conversationId, content } = req.body;
 
+        // Basic validation only - allow all messages through
+        if (!conversationType || !conversationId || !content) {
+            return res.status(400).json({ 
+                message: 'Missing required fields',
+                required: ['conversationType', 'conversationId', 'content']
+            });
+        }
+
+        if (!['group', 'individual'].includes(conversationType)) {
+            return res.status(400).json({ 
+                message: 'Invalid conversation type. Must be "group" or "individual"'
+            });
+        }
+
+        // Create and save message efficiently
         const message = new Message({
             conversationType,
             conversationId,
             senderId: req.user._id,
             senderRole: req.user.role,
-            content,
+            content: typeof content === 'string' ? content.trim() : content,
             readBy: [{ userId: req.user._id }]
         });
 
+        // Save message to database
         await message.save();
 
-        // Populate sender information for real-time messaging
+        // Populate sender information for response
         await message.populate('senderId', 'email role');
 
-        // Emit socket event for real-time messaging
-        if (conversationType === 'group') {
-            // For group messages, only emit to the group room
-            req.io.to(conversationId.toString()).emit('newMessage', message);
-        } else {
-            // For individual chats, emit to both users' individual rooms
-            req.io.to(conversationId.toString()).emit('newMessage', message);
-            req.io.to(req.user._id.toString()).emit('newMessage', message);
-        }
+        // Emit socket event asynchronously (don't wait for it)
+        setImmediate(() => {
+            try {
+                if (req.io) {
+                    if (conversationType === 'group') {
+                        req.io.to(conversationId.toString()).emit('newMessage', message);
+                    } else {
+                        req.io.to(conversationId.toString()).emit('newMessage', message);
+                        req.io.to(req.user._id.toString()).emit('newMessage', message);
+                    }
+                }
+            } catch (socketError) {
+                console.error('Socket emission error (non-blocking):', socketError.message);
+            }
+        });
 
+        // Respond immediately without waiting for socket emission
         res.status(201).json(message);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Error sending message:', error);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ 
+            message: 'Server error while sending message',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 });
 

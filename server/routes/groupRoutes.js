@@ -12,23 +12,119 @@ const router = express.Router();
 // @access  Private (Mentor only)
 router.post('/', auth, roleCheck(['mentor']), async (req, res) => {
     try {
-        const mentor = await Mentor.findOne({ userId: req.user._id });
-        const { name, description, color, menteeIds } = req.body;
+        console.log(`[${new Date().toISOString()}] Group creation request from user: ${req.user.email}`);
+        console.log('Request body:', req.body);
 
+        // Validate required fields
+        const { name, description, color, menteeIds } = req.body;
+        
+        if (!name || name.trim().length === 0) {
+            console.log('Group creation failed: Missing or empty name');
+            return res.status(400).json({ 
+                message: 'Group name is required',
+                field: 'name'
+            });
+        }
+
+        if (name.trim().length > 100) {
+            console.log('Group creation failed: Name too long');
+            return res.status(400).json({ 
+                message: 'Group name must be less than 100 characters',
+                field: 'name'
+            });
+        }
+
+        console.log('Finding mentor profile...');
+        const mentor = await Mentor.findOne({ userId: req.user._id });
+        
+        if (!mentor) {
+            console.log('Group creation failed: No mentor profile found for user:', req.user._id);
+            return res.status(404).json({ 
+                message: 'Mentor profile not found. Please contact administrator.',
+                code: 'MENTOR_PROFILE_MISSING'
+            });
+        }
+
+        console.log(`Found mentor: ${mentor.fullName} (${mentor._id})`);
+
+        // Validate menteeIds if provided
+        if (menteeIds && Array.isArray(menteeIds)) {
+            console.log(`Validating ${menteeIds.length} mentee IDs...`);
+            
+            // Check if all menteeIds are valid ObjectIds
+            const mongoose = require('mongoose');
+            const invalidIds = menteeIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+            
+            if (invalidIds.length > 0) {
+                console.log('Group creation failed: Invalid mentee IDs:', invalidIds);
+                return res.status(400).json({ 
+                    message: 'Invalid mentee IDs provided',
+                    invalidIds: invalidIds
+                });
+            }
+
+            // Verify mentees exist and belong to this mentor
+            const Mentee = require('../models/Mentee');
+            const mentees = await Mentee.find({ 
+                _id: { $in: menteeIds },
+                mentorId: mentor._id 
+            });
+
+            if (mentees.length !== menteeIds.length) {
+                console.log('Group creation failed: Some mentees not found or not assigned to this mentor');
+                return res.status(400).json({ 
+                    message: 'Some mentees are not found or not assigned to you',
+                    found: mentees.length,
+                    requested: menteeIds.length
+                });
+            }
+        }
+
+        console.log('Creating group...');
         const group = new Group({
-            name,
+            name: name.trim(),
             mentorId: mentor._id,
-            description,
+            description: description ? description.trim() : '',
             color: color || '#3B82F6',
             menteeIds: menteeIds || []
         });
 
+        console.log('Saving group to database...');
         await group.save();
+        console.log('Group saved successfully with ID:', group._id);
+
+        console.log('Populating group data...');
         await group.populate('menteeIds', 'fullName studentId class section');
 
+        console.log('Group creation completed successfully');
         res.status(201).json(group);
     } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        console.error('Error creating group:', error);
+        console.error('Error stack:', error.stack);
+        
+        // Handle specific MongoDB errors
+        if (error.name === 'ValidationError') {
+            const validationErrors = Object.values(error.errors).map(err => ({
+                field: err.path,
+                message: err.message
+            }));
+            return res.status(400).json({ 
+                message: 'Validation failed',
+                errors: validationErrors
+            });
+        }
+
+        if (error.code === 11000) {
+            return res.status(400).json({ 
+                message: 'A group with this name already exists',
+                code: 'DUPLICATE_NAME'
+            });
+        }
+
+        res.status(500).json({ 
+            message: 'Server error while creating group',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 });
 
