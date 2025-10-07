@@ -260,5 +260,5 @@ jest_html_reporters.html
 # Webpack Bundle Analyzer
 webpack-bundle-analyzer-report.html
 
-# issues file
-issues.md
+# uncomment this when deploying issues file
+# issues.md
