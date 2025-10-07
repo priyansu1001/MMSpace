@@ -259,3 +259,6 @@ jest_html_reporters.html
 
 # Webpack Bundle Analyzer
 webpack-bundle-analyzer-report.html
+
+# issues file
+issues.md
