@@ -17,3 +17,4 @@ Attendance | CGPA | Pending / Approved | raise your complient (mentor)
 - like not working, comment appearing twice for mentee
 - when deleting groups, fix the pop up
 - cancel leave req
+- batch select, delete groups 
