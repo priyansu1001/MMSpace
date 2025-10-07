@@ -13,6 +13,7 @@ import DashboardPage from './pages/DashboardPage'
 import GroupsPage from './pages/GroupsPage'
 import ChatPage from './pages/ChatPage'
 import LeavesPage from './pages/LeavesPage'
+import AttendancePage from './pages/AttendancePage'
 import ProfilePage from './pages/ProfilePage'
 
 function App() {
@@ -65,6 +66,14 @@ function App() {
                                     element={
                                         <ProtectedRoute>
                                             <LeavesPage />
+                                        </ProtectedRoute>
+                                    }
+                                />
+                                <Route
+                                    path="/attendance"
+                                    element={
+                                        <ProtectedRoute>
+                                            <AttendancePage />
                                         </ProtectedRoute>
                                     }
                                 />

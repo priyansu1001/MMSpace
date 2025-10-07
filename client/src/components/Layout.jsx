@@ -15,7 +15,8 @@ import {
     Shield,
     Settings,
     Moon,
-    Sun
+    Sun,
+    BarChart3
 } from 'lucide-react'
 import LogoIcon from './icons/LogoIcon'
 
@@ -38,6 +39,7 @@ const Layout = ({ children }) => {
         { name: 'Groups', href: '/groups', icon: Users, roles: ['mentor'] },
         { name: 'Chat', href: '/chat', icon: MessageCircle, roles: ['mentor', 'mentee'] },
         { name: 'Leaves', href: '/leaves', icon: Calendar, roles: ['mentor', 'mentee'] },
+        { name: 'Attendance', href: '/attendance', icon: BarChart3, roles: ['mentor', 'admin'] },
         { name: 'Profile', href: '/profile', icon: User },
     ]
 

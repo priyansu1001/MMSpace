@@ -24,7 +24,7 @@ router.post('/', auth, roleCheck(['mentor']), async (req, res) => {
         });
 
         await group.save();
-        await group.populate('menteeIds', 'fullName studentId class section');
+        await group.populate('menteeIds', 'fullName studentId class section attendance');
 
         res.status(201).json(group);
     } catch (error) {
@@ -41,7 +41,7 @@ router.get('/', auth, roleCheck(['mentor']), async (req, res) => {
         const groups = await Group.find({
             mentorId: mentor._id,
             isArchived: false
-        }).populate('menteeIds', 'fullName studentId class section');
+        }).populate('menteeIds', 'fullName studentId class section attendance');
 
         res.json(groups);
     } catch (error) {
@@ -77,7 +77,7 @@ router.get('/mentee', auth, roleCheck(['mentee']), async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
     try {
         const group = await Group.findById(req.params.id)
-            .populate('menteeIds', 'fullName studentId class section phone')
+            .populate('menteeIds', 'fullName studentId class section phone attendance')
             .populate('mentorId', 'fullName department');
 
         if (!group) {
@@ -110,7 +110,7 @@ router.get('/:id', auth, async (req, res) => {
 router.get('/:id/details', auth, async (req, res) => {
     try {
         const group = await Group.findById(req.params.id)
-            .populate('menteeIds', 'fullName studentId class section phone email')
+            .populate('menteeIds', 'fullName studentId class section phone email attendance')
             .populate('mentorId', 'fullName department email');
 
         if (!group) {
@@ -145,7 +145,7 @@ router.put('/:id', auth, roleCheck(['mentor']), async (req, res) => {
             req.params.id,
             { name, description, color, menteeIds },
             { new: true }
-        ).populate('menteeIds', 'fullName studentId class section');
+        ).populate('menteeIds', 'fullName studentId class section attendance');
 
         if (!group) {
             return res.status(404).json({ message: 'Group not found' });
