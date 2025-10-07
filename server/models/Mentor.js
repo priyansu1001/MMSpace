@@ -29,6 +29,10 @@ const mentorSchema = new mongoose.Schema({
     qualifications: {
         type: String
     },
+    citations: {
+        type: String,
+        default: ''
+    },
     experience: {
         type: Number,
         default: 0

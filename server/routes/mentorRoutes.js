@@ -46,6 +46,55 @@ router.get('/mentees', auth, roleCheck(['mentor']), async (req, res) => {
     }
 });
 
+// @route   PUT /api/mentors/profile
+// @desc    Update mentor profile
+// @access  Private (Mentor only)
+router.put('/profile', auth, roleCheck(['mentor']), async (req, res) => {
+    try {
+        const { email, phone, qualifications, citations } = req.body;
+        
+        // Find mentor profile
+        const mentor = await Mentor.findOne({ userId: req.user._id });
+        if (!mentor) {
+            return res.status(404).json({ message: 'Mentor profile not found' });
+        }
+
+        // Update mentor fields
+        if (phone !== undefined) mentor.phone = phone;
+        if (qualifications !== undefined) mentor.qualifications = qualifications;
+        if (citations !== undefined) mentor.citations = citations;
+
+        await mentor.save();
+
+        // Update email in User model if provided
+        if (email && email !== req.user.email) {
+            const User = require('../models/User');
+            const existingUser = await User.findOne({ email, _id: { $ne: req.user._id } });
+            
+            if (existingUser) {
+                return res.status(400).json({ message: 'Email already in use' });
+            }
+
+            await User.findByIdAndUpdate(req.user._id, { email });
+        }
+
+        // Fetch updated mentor with user data
+        const updatedMentor = await Mentor.findOne({ userId: req.user._id })
+            .populate('userId', 'email');
+
+        res.json({ 
+            message: 'Profile updated successfully', 
+            mentor: updatedMentor 
+        });
+    } catch (error) {
+        console.error('Error updating mentor profile:', error);
+        if (error.code === 11000) {
+            return res.status(400).json({ message: 'Email already exists' });
+        }
+        res.status(500).json({ message: 'Failed to update profile' });
+    }
+});
+
 // @route   GET /api/mentors/dashboard
 // @desc    Get mentor dashboard data
 // @access  Private (Mentor only)
