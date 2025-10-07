@@ -134,11 +134,26 @@ export const AuthProvider = ({ children }) => {
         dispatch({ type: 'LOGOUT' });
     }
 
+    const refreshProfile = async () => {
+        try {
+            const response = await api.get('/auth/me')
+            dispatch({
+                type: 'LOAD_USER',
+                payload: response.data
+            })
+            return response.data
+        } catch (error) {
+            console.error('Error refreshing profile:', error)
+            throw error
+        }
+    }
+
     const value = {
         ...state,
         login,
         logout,
-        loadUser
+        loadUser,
+        refreshProfile
     }
 
     return (

@@ -66,6 +66,7 @@ const seedData = async () => {
             phone: '+1-555-0123',
             subjects: ['Mathematics', 'Computer Science', 'Physics'],
             qualifications: 'PhD in Computer Science, M.Sc in Mathematics',
+            citations: 'Johnson, S. (2023). "Advanced Machine Learning Algorithms in Education." Journal of Educational Technology, 45(2), 123-145.\n\nJohnson, S., & Smith, R. (2022). "Innovative Teaching Methods in Computer Science." ACM SIGCSE Bulletin, 54(1), 89-102.\n\nJohnson, S. (2021). "Data Structures and Algorithm Design for Modern Applications." IEEE Transactions on Education, 64(3), 201-215.',
             experience: 8,
             officeHours: '9:00 AM - 5:00 PM'
         });
