@@ -40,6 +40,19 @@ const AnnouncementFeed = () => {
             }
         }
     }, [socket])
+    
+    // Highlight for mentors: Ensure they can see their own announcements clearly
+    useEffect(() => {
+        if (user && user.role === 'mentor') {
+            // Highlight announcements created by the current mentor
+            setAnnouncements(prev => prev.map(announcement => {
+                if (announcement.authorId && announcement.authorId._id === user.id) {
+                    return { ...announcement, isOwnAnnouncement: true };
+                }
+                return announcement;
+            }));
+        }
+    }, [announcements.length, user])
 
     const fetchAnnouncements = async () => {
         try {
@@ -199,6 +212,11 @@ const AnnouncementFeed = () => {
                                         <div className="flex-1">
                                             <h3 className="text-xl font-bold mb-2">
                                                 {announcement.title}
+                                                {user && user.id === announcement.authorId?._id && (
+                                                    <span className="ml-2 text-xs px-2 py-0.5 bg-white/30 rounded-full">
+                                                        Your announcement
+                                                    </span>
+                                                )}
                                             </h3>
                                             <div className="flex items-center space-x-4 text-sm opacity-90">
                                                 <div className="flex items-center space-x-1">

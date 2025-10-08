@@ -10,6 +10,7 @@ import GroupIcon from '../components/icons/GroupIcon'
 import UserIcon from '../components/icons/UserIcon'
 import MenteeSelectionModal from '../components/MenteeSelectionModal'
 import AnnouncementFeed from '../components/AnnouncementFeed'
+import AnnouncementHistory from '../components/AnnouncementHistory'
 import { toast } from 'react-hot-toast'
 
 const ModernChatPage = () => {
@@ -25,6 +26,7 @@ const ModernChatPage = () => {
     const [selectedConversation, setSelectedConversation] = useState(null)
     const [conversationType, setConversationType] = useState('group')
     const [activeTab, setActiveTab] = useState('chats') // 'chats' or 'announcements'
+    const [selectedAnnouncement, setSelectedAnnouncement] = useState(null)
     const [showCreateChat, setShowCreateChat] = useState(false)
     const [showMenteeSelection, setShowMenteeSelection] = useState(false)
     const [showChatMenu, setShowChatMenu] = useState(false)
@@ -177,10 +179,20 @@ const ModernChatPage = () => {
         }
     }
 
+    useEffect(() => {
+        if (activeTab === 'announcements') {
+            setSelectedAnnouncement(prev => prev ?? { _id: 'all' })
+        } else {
+            setSelectedAnnouncement(null)
+        }
+    }, [activeTab])
+
     const fetchAnnouncements = async () => {
         try {
             const response = await api.get('/announcements')
-            setAnnouncements(response.data.announcements || [])
+            const fetched = response.data.announcements || []
+            const sorted = [...fetched].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            setAnnouncements(sorted)
         } catch (error) {
             console.error('Error fetching announcements:', error)
         }
@@ -427,7 +439,10 @@ const ModernChatPage = () => {
                         {/* Tab Navigation */}
                         <div className="flex bg-slate-100/50 dark:bg-slate-700/50 rounded-2xl p-1 backdrop-blur-sm">
                             <button
-                                onClick={() => setActiveTab('chats')}
+                                onClick={() => {
+                                    setActiveTab('chats')
+                                    setSelectedAnnouncement(null)
+                                }}
                                 className={`flex-1 flex items-center justify-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'chats'
                                     ? 'bg-white dark:bg-slate-600 text-slate-800 dark:text-white shadow-lg transform scale-105'
                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
@@ -437,7 +452,10 @@ const ModernChatPage = () => {
                                 Chats
                             </button>
                             <button
-                                onClick={() => setActiveTab('announcements')}
+                                onClick={() => {
+                                    setActiveTab('announcements')
+                                    setSelectedAnnouncement({ _id: 'all' })
+                                }}
                                 className={`flex-1 flex items-center justify-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'announcements'
                                     ? 'bg-white dark:bg-slate-600 text-slate-800 dark:text-white shadow-lg transform scale-105'
                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
@@ -531,14 +549,23 @@ const ModernChatPage = () => {
 
                                         {/* Recent Announcements */}
                                         <div className="space-y-3">
-                                            <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 px-2">
-                                                Recent Announcements
-                                            </h3>
+                                            <div className="flex justify-between items-center px-2">
+                                                <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                                                    Recent Announcements
+                                                </h3>
+                                                <button 
+                                                    onClick={() => setSelectedAnnouncement({ _id: 'all' })}
+                                                    className="text-sm px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                                                >
+                                                    View History
+                                                </button>
+                                            </div>
                                             {announcements.length > 0 ? (
                                                 announcements.map((announcement, index) => (
                                                     <div
                                                         key={announcement._id}
-                                                        className="bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl p-4 border border-white/20 dark:border-slate-600/30 hover:shadow-lg transition-all duration-300"
+                                                        onClick={() => setSelectedAnnouncement(announcement)}
+                                                        className="bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm rounded-2xl p-4 border border-white/20 dark:border-slate-600/30 hover:shadow-lg hover:bg-white/80 dark:hover:bg-slate-700/80 cursor-pointer transition-all duration-300"
                                                         style={{ animationDelay: `${index * 0.1}s` }}
                                                     >
                                                         <div className="flex items-start space-x-3">
@@ -587,7 +614,12 @@ const ModernChatPage = () => {
 
                 {/* Main Chat Area */}
                 <div className="flex-1 flex flex-col">
-                    {selectedConversation ? (
+                    {selectedAnnouncement ? (
+                        <AnnouncementHistory 
+                            selectedAnnouncement={selectedAnnouncement}
+                            onClose={() => setSelectedAnnouncement(null)}
+                        />
+                    ) : selectedConversation ? (
                         <>
                             {/* Chat Header */}
                             <div className="p-6 bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl border-b border-white/20 dark:border-slate-700/50">
@@ -773,6 +805,7 @@ const ModernChatPage = () => {
                             </div>
                         </div>
                     )}
+                
                 </div>
 
                 {/* Create Chat Modal */}

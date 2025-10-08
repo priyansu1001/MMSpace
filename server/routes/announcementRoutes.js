@@ -84,22 +84,27 @@ router.get('/', auth, async (req, res) => {
     try {
         const { page = 1, limit = 20, priority, targetAudience } = req.query;
 
-        const filter = { isActive: true };
+        const filter = {
+            isActive: true,
+            ...(priority ? { priority } : {})
+        };
 
-        // Filter by target audience
+        const audienceConditions = [];
+
         if (targetAudience) {
-            filter.targetAudience = { $in: [targetAudience, 'all'] };
-        } else {
-            // Default filter based on user role
-            if (req.user.role === 'mentee') {
-                filter.targetAudience = { $in: ['mentees', 'all'] };
-            } else if (req.user.role === 'mentor') {
-                filter.targetAudience = { $in: ['mentors', 'all'] };
-            }
+            audienceConditions.push({ targetAudience: { $in: [targetAudience, 'all'] } });
+        } else if (req.user.role === 'mentee') {
+            audienceConditions.push({ targetAudience: { $in: ['mentees', 'all'] } });
+        } else if (req.user.role === 'mentor') {
+            audienceConditions.push({ targetAudience: { $in: ['mentors', 'all'] } });
         }
 
-        if (priority) {
-            filter.priority = priority;
+        if (req.user.role === 'mentor') {
+            audienceConditions.push({ authorId: req.user._id });
+        }
+
+        if (audienceConditions.length > 0) {
+            filter.$or = audienceConditions;
         }
 
         const announcements = await Announcement.find(filter)
@@ -211,6 +216,41 @@ router.get('/:id/comments', auth, async (req, res) => {
         res.json(announcement.comments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)));
     } catch (error) {
         console.error('Error fetching comments:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   PATCH /api/announcements/:id
+// @desc    Update announcement
+// @access  Private (Admin/Author only)
+router.patch('/:id', auth, async (req, res) => {
+    try {
+        const { title, content, priority } = req.body;
+        const announcement = await Announcement.findById(req.params.id);
+
+        if (!announcement) {
+            return res.status(404).json({ message: 'Announcement not found' });
+        }
+
+        // Check if user is admin or the author
+        if (req.user.role !== 'admin' && announcement.authorId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        // Update the fields
+        if (title) announcement.title = title;
+        if (content) announcement.content = content;
+        if (priority) announcement.priority = priority;
+
+        announcement.updatedAt = Date.now();
+        await announcement.save();
+
+        res.json({ 
+            message: 'Announcement updated successfully', 
+            announcement 
+        });
+    } catch (error) {
+        console.error('Error updating announcement:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
