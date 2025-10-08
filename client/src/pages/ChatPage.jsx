@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
@@ -88,6 +88,17 @@ const ModernChatPage = () => {
         }
     }, [showChatMenu])
 
+    const fetchAnnouncements = useCallback(async () => {
+        try {
+            const response = await api.get('/announcements')
+            const fetched = response.data.announcements || []
+            const sorted = [...fetched].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            setAnnouncements(sorted)
+        } catch (error) {
+            console.error('Error fetching announcements:', error)
+        }
+    }, [])
+
     const fetchConversations = async () => {
         try {
             let conversationList = []
@@ -122,7 +133,6 @@ const ModernChatPage = () => {
                 // For mentees, show groups they belong to and chat with their mentor
                 try {
                     console.log('Fetching groups for mentee...')
-                    // Fetch groups that the mentee belongs to
                     const groupsResponse = await api.get('/groups/mentee')
                     console.log('Mentee groups response:', groupsResponse.data)
                     const groups = groupsResponse.data.map(group => ({
@@ -186,17 +196,6 @@ const ModernChatPage = () => {
             setSelectedAnnouncement(null)
         }
     }, [activeTab])
-
-    const fetchAnnouncements = async () => {
-        try {
-            const response = await api.get('/announcements')
-            const fetched = response.data.announcements || []
-            const sorted = [...fetched].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            setAnnouncements(sorted)
-        } catch (error) {
-            console.error('Error fetching announcements:', error)
-        }
-    }
 
     const sendAnnouncement = async () => {
         if (!newAnnouncement.trim()) return
@@ -616,8 +615,10 @@ const ModernChatPage = () => {
                 <div className="flex-1 flex flex-col">
                     {selectedAnnouncement ? (
                         <AnnouncementHistory 
+                            announcements={announcements}
                             selectedAnnouncement={selectedAnnouncement}
                             onClose={() => setSelectedAnnouncement(null)}
+                            onRefresh={fetchAnnouncements}
                         />
                     ) : selectedConversation ? (
                         <>

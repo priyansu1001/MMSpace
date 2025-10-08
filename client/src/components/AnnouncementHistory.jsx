@@ -15,33 +15,20 @@ import {
 } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 
-const AnnouncementHistory = ({ selectedAnnouncement, onClose }) => {
+const AnnouncementHistory = ({ announcements = [], selectedAnnouncement, onClose, onRefresh }) => {
     const { user } = useAuth();
-    const [announcements, setAnnouncements] = useState([]);
+    const [localAnnouncements, setLocalAnnouncements] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingAnnouncement, setEditingAnnouncement] = useState(null);
     const [editForm, setEditForm] = useState({ title: '', content: '', priority: 'medium' });
     const [confirmDelete, setConfirmDelete] = useState(null);
 
-    useEffect(() => {
-        fetchAnnouncements();
-    }, []);
-
     const sortAnnouncements = (items) => [...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    const fetchAnnouncements = async () => {
-        try {
-            setLoading(true);
-            const response = await api.get('/announcements');
-            const fetched = response.data.announcements || [];
-            setAnnouncements(sortAnnouncements(fetched));
-        } catch (error) {
-            console.error('Error fetching announcements:', error);
-            toast.error('Failed to fetch announcements');
-        } finally {
-            setLoading(false);
-        }
-    };
+    useEffect(() => {
+        setLocalAnnouncements(sortAnnouncements(announcements || []));
+        setLoading(false);
+    }, [announcements]);
 
     const handleEdit = (announcement) => {
         setEditingAnnouncement(announcement._id);
@@ -60,7 +47,7 @@ const AnnouncementHistory = ({ selectedAnnouncement, onClose }) => {
             const updatedAnnouncement = response.data?.announcement || null;
 
             // Update local state
-            setAnnouncements(prev => {
+            setLocalAnnouncements(prev => {
                 const updated = prev.map(ann => 
                     ann._id === announcementId
                         ? { ...ann, ...editForm, ...(updatedAnnouncement || {}) }
@@ -71,6 +58,10 @@ const AnnouncementHistory = ({ selectedAnnouncement, onClose }) => {
 
             setEditingAnnouncement(null);
             toast.success('Announcement updated successfully!');
+
+            if (onRefresh) {
+                await onRefresh();
+            }
         } catch (error) {
             console.error('Error updating announcement:', error);
             toast.error('Failed to update announcement');
@@ -82,9 +73,13 @@ const AnnouncementHistory = ({ selectedAnnouncement, onClose }) => {
             await api.delete(`/announcements/${announcementId}`);
             
             // Update local state by removing the announcement
-            setAnnouncements(prev => prev.filter(ann => ann._id !== announcementId));
+            setLocalAnnouncements(prev => prev.filter(ann => ann._id !== announcementId));
             setConfirmDelete(null);
             toast.success('Announcement deleted successfully!');
+
+            if (onRefresh) {
+                await onRefresh();
+            }
         } catch (error) {
             console.error('Error deleting announcement:', error);
             toast.error('Failed to delete announcement');
@@ -129,8 +124,8 @@ const AnnouncementHistory = ({ selectedAnnouncement, onClose }) => {
 
     // Show a specific announcement if one is selected
     const displayAnnouncements = selectedAnnouncement && selectedAnnouncement._id && selectedAnnouncement._id !== 'all'
-        ? announcements.filter(a => a._id === selectedAnnouncement._id)
-        : announcements;
+        ? localAnnouncements.filter(a => a._id === selectedAnnouncement._id)
+        : localAnnouncements;
 
     return (
         <div className="h-full flex flex-col">
