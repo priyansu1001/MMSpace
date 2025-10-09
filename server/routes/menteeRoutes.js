@@ -1,6 +1,7 @@
 const express = require('express');
 const Mentee = require('../models/Mentee');
 const LeaveRequest = require('../models/LeaveRequest');
+const Grievance = require('../models/Grievance');
 const { auth } = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 
@@ -41,6 +42,12 @@ router.get('/dashboard', auth, roleCheck(['mentee']), async (req, res) => {
             status: 'approved'
         });
 
+        const totalGrievances = await Grievance.countDocuments({ menteeId: mentee._id });
+        const pendingGrievances = await Grievance.countDocuments({
+            menteeId: mentee._id,
+            status: 'pending'
+        });
+
         // Get recent leave requests
         const recentLeaves = await LeaveRequest.find({ menteeId: mentee._id })
             .sort({ createdAt: -1 })
@@ -51,6 +58,8 @@ router.get('/dashboard', auth, roleCheck(['mentee']), async (req, res) => {
                 totalLeaves,
                 pendingLeaves,
                 approvedLeaves,
+                totalGrievances,
+                pendingGrievances,
                 attendancePercentage: mentee.attendance.percentage
             },
             recentLeaves,

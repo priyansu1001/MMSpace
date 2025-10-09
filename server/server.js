@@ -66,6 +66,7 @@ app.use('/api/mentees', require('./routes/menteeRoutes'));
 app.use('/api/groups', require('./routes/groupRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/leaves', require('./routes/leaveRoutes'));
+app.use('/api/grievances', require('./routes/grievanceRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/announcements', require('./routes/announcementRoutes'));
 

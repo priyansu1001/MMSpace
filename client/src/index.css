@@ -25,6 +25,65 @@
         font-weight: 600;
         letter-spacing: -0.025em;
     }
+
+    /* Auto-hiding Scrollbar Styles - Show only when scrolling */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .dark ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.4);
+        opacity: 1;
+    }
+
+    .dark ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.5);
+    }
+
+    ::-webkit-scrollbar-corner {
+        background: transparent;
+    }
+
+    /* Firefox scrollbar - Auto-hiding */
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: transparent transparent;
+        transition: scrollbar-color 0.3s ease;
+    }
+
+    /* Show scrollbars when scrolling */
+    .scrolling::-webkit-scrollbar-thumb {
+        opacity: 1;
+    }
+
+    .scrolling {
+        scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+    }
+
+    .dark .scrolling {
+        scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
+    }
+
+    /* Ensure smooth scrolling */
+    html {
+        scroll-behavior: smooth;
+    }
 }
 
 @layer components {
@@ -119,6 +178,85 @@
 }
 
 @layer utilities {
+    /* Smooth scrolling */
+    .smooth-scroll {
+        scroll-behavior: smooth;
+    }
+
+    /* Hidden scrollbar but still scrollable - Default for all */
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Auto-hiding scrollbar classes */
+    .scrollbar-thin,
+    .modal-scroll,
+    .scrollbar-cyber {
+        scrollbar-width: thin;
+        scrollbar-color: transparent transparent;
+        transition: scrollbar-color 0.3s ease;
+    }
+    
+    .scrollbar-thin::-webkit-scrollbar,
+    .modal-scroll::-webkit-scrollbar,
+    .scrollbar-cyber::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar-track,
+    .modal-scroll::-webkit-scrollbar-track,
+    .scrollbar-cyber::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar-thumb,
+    .modal-scroll::-webkit-scrollbar-thumb,
+    .scrollbar-cyber::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        opacity: 0;
+        transition: opacity 0.3s ease, background 0.3s ease;
+    }
+
+    .dark .scrollbar-thin::-webkit-scrollbar-thumb,
+    .dark .modal-scroll::-webkit-scrollbar-thumb,
+    .dark .scrollbar-cyber::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Show scrollbars when element has 'scrolling' class */
+    .scrolling.scrollbar-thin::-webkit-scrollbar-thumb,
+    .scrolling.modal-scroll::-webkit-scrollbar-thumb,
+    .scrolling.scrollbar-cyber::-webkit-scrollbar-thumb {
+        opacity: 1;
+    }
+
+    .scrolling.scrollbar-thin {
+        scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+    }
+
+    .scrolling.modal-scroll {
+        scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+    }
+
+    .scrolling.scrollbar-cyber {
+        scrollbar-color: rgba(0, 255, 255, 0.5) transparent;
+    }
+
+    .dark .scrolling.scrollbar-thin,
+    .dark .scrolling.modal-scroll {
+        scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
+    }
+
+    .dark .scrolling.scrollbar-cyber {
+        scrollbar-color: rgba(0, 255, 255, 0.6) transparent;
+    }
 
     /* Custom animations */
     @keyframes fadeInUp {

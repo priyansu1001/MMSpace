@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -17,8 +17,9 @@ const ProfilePage = () => {
         citations: ''
     })
 
+    // Initialize form data only when profile/user data is first loaded, never during edit mode
     useEffect(() => {
-        if (profile && user) {
+        if (profile && user && !editMode) {
             setFormData({
                 email: user.email || '',
                 phone: profile.phone || '',
@@ -26,13 +27,13 @@ const ProfilePage = () => {
                 citations: profile.citations || ''
             })
         }
-    }, [profile, user])
+    }, [profile?.id, user?.id]) // Removed editMode dependency to prevent interference
 
-    const handleEdit = () => {
+    const handleEdit = useCallback(() => {
         setEditMode(true)
-    }
+    }, [])
 
-    const handleCancel = () => {
+    const handleCancel = useCallback(() => {
         setEditMode(false)
         setFormData({
             email: user.email || '',
@@ -40,7 +41,7 @@ const ProfilePage = () => {
             qualifications: profile.qualifications || '',
             citations: profile.citations || ''
         })
-    }
+    }, [user?.email, profile?.phone, profile?.qualifications, profile?.citations])
 
     const handleSave = async () => {
         if (user.role !== 'mentor') return
@@ -58,12 +59,18 @@ const ProfilePage = () => {
         }
     }
 
-    const handleInputChange = (field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            [field]: value
-        }))
-    }
+    const handleInputChange = useCallback((field, value) => {
+        setFormData(prev => {
+            // Only update if the value actually changed
+            if (prev[field] !== value) {
+                return {
+                    ...prev,
+                    [field]: value
+                }
+            }
+            return prev
+        })
+    }, [])
 
     if (!profile) {
         return (
@@ -75,7 +82,7 @@ const ProfilePage = () => {
         )
     }
 
-    const MentorProfile = () => (
+    const MentorProfile = useMemo(() => (
         <div className="space-y-8">
             {/* Profile Header */}
             <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20 dark:border-slate-700/50 p-8">
@@ -265,7 +272,7 @@ const ProfilePage = () => {
                 </div>
             </div>
         </div>
-    )
+    ), [profile, user, editMode, formData, loading, handleEdit, handleSave, handleCancel, handleInputChange])
 
     const MenteeProfile = () => (
         <div className="space-y-8">
@@ -428,7 +435,7 @@ const ProfilePage = () => {
                     </p>
                 </div>
 
-                {user.role === 'mentor' ? <MentorProfile /> : <MenteeProfile />}
+                {user.role === 'mentor' ? MentorProfile : <MenteeProfile />}
             </div>
         </Layout>
     )

@@ -8,6 +8,7 @@ import {
     Users,
     MessageCircle,
     Calendar,
+    FileText,
     User,
     LogOut,
     Menu,
@@ -39,6 +40,7 @@ const Layout = ({ children }) => {
         { name: 'Groups', href: '/groups', icon: Users, roles: ['mentor'] },
         { name: 'Chat', href: '/chat', icon: MessageCircle, roles: ['mentor', 'mentee'] },
         { name: 'Leaves', href: '/leaves', icon: Calendar, roles: ['mentor', 'mentee'] },
+        { name: 'Grievances', href: '/grievances', icon: FileText, roles: ['mentor', 'mentee'] },
         { name: 'Attendance', href: '/attendance', icon: BarChart3, roles: ['mentor', 'admin'] },
         { name: 'Profile', href: '/profile', icon: User },
     ]

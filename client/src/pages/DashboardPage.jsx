@@ -5,7 +5,7 @@ import Layout from '../components/Layout'
 import LoadingSpinner from '../components/LoadingSpinner'
 import StudentDetailsModal from '../components/StudentDetailsModal'
 import api from '../services/api'
-import { Users, MessageSquare, Calendar, TrendingUp, Phone, Mail, User, Eye } from 'lucide-react'
+import { Users, MessageSquare, Calendar, TrendingUp, Phone, Mail, User, Eye, FileText } from 'lucide-react'
 import AdminDashboard from './AdminDashboard'
 
 const DashboardPage = () => {
@@ -53,7 +53,7 @@ const DashboardPage = () => {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {/* Total Mentees Card */}
                 <div
                     onClick={() => setShowExpandedMentees(true)}
@@ -73,7 +73,6 @@ const DashboardPage = () => {
                                 <Users className="h-8 w-8 text-white" />
                             </div>
                         </div>
-                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-300 to-blue-400"></div>
                     </div>
                 </div>
 
@@ -96,7 +95,6 @@ const DashboardPage = () => {
                                 <MessageSquare className="h-8 w-8 text-white" />
                             </div>
                         </div>
-                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-green-300 to-green-400"></div>
                     </div>
                 </div>
 
@@ -119,7 +117,28 @@ const DashboardPage = () => {
                                 <Calendar className="h-8 w-8 text-white" />
                             </div>
                         </div>
-                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-300 to-orange-400"></div>
+                    </div>
+                </div>
+
+                {/* Grievances Card */}
+                <div
+                    onClick={() => navigate('/grievances')}
+                    className="relative overflow-hidden bg-gradient-to-br from-red-500 to-pink-600 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
+                >
+                    <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                    <div className="relative p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-red-100 text-sm font-medium">Grievances</p>
+                                <p className="text-white text-3xl font-bold mt-1">
+                                    {dashboardData?.stats?.totalGrievances || 0}
+                                </p>
+                                <p className="text-red-100 text-xs mt-1">To review</p>
+                            </div>
+                            <div className="bg-white/20 p-3 rounded-full">
+                                <FileText className="h-8 w-8 text-white" />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -485,7 +504,7 @@ const DashboardPage = () => {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {/* Attendance Card */}
                 <div
                     onClick={() => navigate('/profile')}
@@ -505,11 +524,32 @@ const DashboardPage = () => {
                                 <TrendingUp className="h-8 w-8 text-white" />
                             </div>
                         </div>
-                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-300 to-teal-400"></div>
                     </div>
                 </div>
 
-                {/* Total Leaves Card */}
+                {/* Grievances Card */}
+                <div
+                    onClick={() => navigate('/grievances')}
+                    className="relative overflow-hidden bg-gradient-to-br from-red-500 to-pink-600 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
+                >
+                    <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                    <div className="relative p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-red-100 text-sm font-medium">Grievances</p>
+                                <p className="text-white text-3xl font-bold mt-1">
+                                    {dashboardData?.stats?.totalGrievances || 0}
+                                </p>
+                                <p className="text-red-100 text-xs mt-1">Submitted</p>
+                            </div>
+                            <div className="bg-white/20 p-3 rounded-full">
+                                <FileText className="h-8 w-8 text-white" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Leaves Status Card (Combined Pending & Approved) */}
                 <div
                     onClick={() => navigate('/leaves')}
                     className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
@@ -518,63 +558,24 @@ const DashboardPage = () => {
                     <div className="relative p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-purple-100 text-sm font-medium">Total Leaves</p>
-                                <p className="text-white text-3xl font-bold mt-1">
-                                    {dashboardData?.stats?.totalLeaves || 0}
-                                </p>
-                                <p className="text-purple-100 text-xs mt-1">All time</p>
+                                <p className="text-purple-100 text-sm font-medium">Leaves Status</p>
+                                <div className="flex items-baseline space-x-2 mt-1">
+                                    <p className="text-white text-2xl font-bold">
+                                        {dashboardData?.stats?.pendingLeaves || 0}
+                                    </p>
+                                    <span className="text-purple-200 text-sm">pending</span>
+                                    <span className="text-purple-200 text-sm">•</span>
+                                    <p className="text-white text-2xl font-bold">
+                                        {dashboardData?.stats?.approvedLeaves || 0}
+                                    </p>
+                                    <span className="text-purple-200 text-sm">approved</span>
+                                </div>
+                                <p className="text-purple-100 text-xs mt-1">Leave requests</p>
                             </div>
                             <div className="bg-white/20 p-3 rounded-full">
                                 <Calendar className="h-8 w-8 text-white" />
                             </div>
                         </div>
-                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-300 to-indigo-400"></div>
-                    </div>
-                </div>
-
-                {/* Pending Leaves Card */}
-                <div
-                    onClick={() => navigate('/leaves')}
-                    className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
-                >
-                    <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-                    <div className="relative p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-amber-100 text-sm font-medium">Pending Leaves</p>
-                                <p className="text-white text-3xl font-bold mt-1">
-                                    {dashboardData?.stats?.pendingLeaves || 0}
-                                </p>
-                                <p className="text-amber-100 text-xs mt-1">Awaiting approval</p>
-                            </div>
-                            <div className="bg-white/20 p-3 rounded-full">
-                                <Calendar className="h-8 w-8 text-white" />
-                            </div>
-                        </div>
-                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-300 to-orange-400"></div>
-                    </div>
-                </div>
-
-                {/* Approved Leaves Card */}
-                <div
-                    onClick={() => navigate('/leaves')}
-                    className="relative overflow-hidden bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
-                >
-                    <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-                    <div className="relative p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-green-100 text-sm font-medium">Approved Leaves</p>
-                                <p className="text-white text-3xl font-bold mt-1">
-                                    {dashboardData?.stats?.approvedLeaves || 0}
-                                </p>
-                                <p className="text-green-100 text-xs mt-1">This year</p>
-                            </div>
-                            <div className="bg-white/20 p-3 rounded-full">
-                                <Calendar className="h-8 w-8 text-white" />
-                            </div>
-                        </div>
-                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-green-300 to-emerald-400"></div>
                     </div>
                 </div>
             </div>

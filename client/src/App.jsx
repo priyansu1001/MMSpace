@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
+import { useEffect } from 'react'
 import { AuthProvider } from './context/AuthContext'
 import { SocketProvider } from './context/SocketContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -13,10 +14,17 @@ import DashboardPage from './pages/DashboardPage'
 import GroupsPage from './pages/GroupsPage'
 import ChatPage from './pages/ChatPage'
 import LeavesPage from './pages/LeavesPage'
+import GrievancePage from './pages/GrievancePage'
 import AttendancePage from './pages/AttendancePage'
 import ProfilePage from './pages/ProfilePage'
+import initAutoHideScrollbars from './utils/autoHideScrollbar'
 
 function App() {
+    useEffect(() => {
+        // Initialize auto-hide scrollbars
+        initAutoHideScrollbars();
+    }, []);
+
     return (
         <ThemeProvider>
             <AuthProvider>
@@ -66,6 +74,14 @@ function App() {
                                     element={
                                         <ProtectedRoute>
                                             <LeavesPage />
+                                        </ProtectedRoute>
+                                    }
+                                />
+                                <Route
+                                    path="/grievances"
+                                    element={
+                                        <ProtectedRoute>
+                                            <GrievancePage />
                                         </ProtectedRoute>
                                     }
                                 />
