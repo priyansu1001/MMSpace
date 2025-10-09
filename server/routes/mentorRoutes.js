@@ -3,6 +3,7 @@ const Mentor = require('../models/Mentor');
 const Mentee = require('../models/Mentee');
 const Group = require('../models/Group');
 const LeaveRequest = require('../models/LeaveRequest');
+const Grievance = require('../models/Grievance');
 const { auth } = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 const { safeFindOne, safeFind, safeCount, executeMultipleWithRetry } = require('../utils/dbUtils');
@@ -101,7 +102,7 @@ router.put('/profile', auth, roleCheck(['mentor']), async (req, res) => {
 router.get('/dashboard', auth, roleCheck(['mentor']), async (req, res) => {
     try {
         let retries = 3;
-        let mentor, totalMentees, totalGroups, pendingLeaves, recentLeaves, mentees;
+        let mentor, totalMentees, totalGroups, pendingLeaves, totalGrievances, recentLeaves, mentees;
 
         while (retries > 0) {
             try {
@@ -112,12 +113,16 @@ router.get('/dashboard', auth, roleCheck(['mentor']), async (req, res) => {
                 }
 
                 // Execute all queries with proper error handling
-                [totalMentees, totalGroups, pendingLeaves, recentLeaves, mentees] = await Promise.all([
+                [totalMentees, totalGroups, pendingLeaves, totalGrievances, recentLeaves, mentees] = await Promise.all([
                     Mentee.countDocuments({ mentorId: mentor._id }),
                     Group.countDocuments({ mentorId: mentor._id, isArchived: false }),
                     LeaveRequest.countDocuments({
                         mentorId: mentor._id,
                         status: 'pending'
+                    }),
+                    Grievance.countDocuments({
+                        mentorId: mentor._id,
+                        status: { $in: ['pending', 'in-review'] }
                     }),
                     LeaveRequest.find({ mentorId: mentor._id })
                         .populate('menteeId', 'fullName studentId')
@@ -146,7 +151,8 @@ router.get('/dashboard', auth, roleCheck(['mentor']), async (req, res) => {
             stats: {
                 totalMentees,
                 totalGroups,
-                pendingLeaves
+                pendingLeaves,
+                totalGrievances
             },
             recentLeaves,
             mentees
