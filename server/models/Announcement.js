@@ -69,6 +69,22 @@ const announcementSchema = new mongoose.Schema({
             type: Date,
             default: Date.now
         }
+    }],
+    likes: [{
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true
+        },
+        userRole: {
+            type: String,
+            enum: ['admin', 'mentor', 'mentee'],
+            required: true
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now
+        }
     }]
 }, {
     timestamps: true

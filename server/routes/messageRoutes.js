@@ -1,6 +1,8 @@
 const express = require('express');
 const Message = require('../models/Message');
 const Group = require('../models/Group');
+const Mentor = require('../models/Mentor');
+const Mentee = require('../models/Mentee');
 const { auth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -121,6 +123,70 @@ router.put('/:id/read', auth, async (req, res) => {
 
         res.json({ message: 'Message marked as read' });
     } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   DELETE /api/messages/conversation/:type/:id
+// @desc    Delete all messages in a conversation
+// @access  Private
+router.delete('/conversation/:type/:id', auth, async (req, res) => {
+    try {
+        const { type, id } = req.params;
+        if (!['group', 'individual'].includes(type)) {
+            return res.status(400).json({ message: 'Invalid conversation type' });
+        }
+
+        let isAuthorized = false;
+
+        if (type === 'group') {
+            const group = await Group.findById(id).select('mentorId menteeIds');
+            if (!group) {
+                return res.status(404).json({ message: 'Group not found' });
+            }
+
+            if (req.user.role === 'mentor') {
+                const mentorProfile = await Mentor.findOne({ userId: req.user._id }).select('_id');
+                if (mentorProfile && group.mentorId?.toString() === mentorProfile._id.toString()) {
+                    isAuthorized = true;
+                }
+            }
+
+            if (!isAuthorized && req.user.role === 'mentee') {
+                const menteeProfile = await Mentee.findOne({ userId: req.user._id }).select('_id');
+                if (menteeProfile && group.menteeIds.some(menteeId => menteeId.toString() === menteeProfile._id.toString())) {
+                    isAuthorized = true;
+                }
+            }
+        } else {
+            const mentee = await Mentee.findById(id).select('mentorId userId');
+            if (!mentee) {
+                return res.status(404).json({ message: 'Conversation not found' });
+            }
+
+            if (req.user.role === 'mentor') {
+                const mentorProfile = await Mentor.findOne({ userId: req.user._id }).select('_id');
+                if (mentorProfile && mentee.mentorId?.toString() === mentorProfile._id.toString()) {
+                    isAuthorized = true;
+                }
+            }
+
+            if (!isAuthorized && req.user.role === 'mentee') {
+                if (mentee.userId?.toString() === req.user._id.toString()) {
+                    isAuthorized = true;
+                }
+            }
+        }
+
+        if (!isAuthorized) {
+            return res.status(403).json({ message: 'Not authorized to delete this conversation' });
+        }
+
+        await Message.deleteMany({ conversationType: type, conversationId: id });
+
+        res.json({ message: 'Conversation deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting conversation:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

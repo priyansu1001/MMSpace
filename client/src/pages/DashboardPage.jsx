@@ -4,8 +4,9 @@ import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 import LoadingSpinner from '../components/LoadingSpinner'
 import StudentDetailsModal from '../components/StudentDetailsModal'
+import AnnouncementFeed from '../components/AnnouncementFeed'
 import api from '../services/api'
-import { Users, MessageSquare, Calendar, TrendingUp, Phone, Mail, User, Eye, FileText } from 'lucide-react'
+import { Users, MessageSquare, Calendar, TrendingUp, Phone, Mail, User, Eye, FileText, Megaphone, RefreshCcw } from 'lucide-react'
 import AdminDashboard from './AdminDashboard'
 
 const DashboardPage = () => {
@@ -16,6 +17,7 @@ const DashboardPage = () => {
     const [selectedStudent, setSelectedStudent] = useState(null)
     const [showStudentModal, setShowStudentModal] = useState(false)
     const [showExpandedMentees, setShowExpandedMentees] = useState(false)
+    const [announcementRefreshKey, setAnnouncementRefreshKey] = useState(0)
 
     useEffect(() => {
         fetchDashboardData()
@@ -31,6 +33,10 @@ const DashboardPage = () => {
         } finally {
             setLoading(false)
         }
+    }
+
+    const handleAnnouncementRefresh = () => {
+        setAnnouncementRefreshKey(prev => prev + 1)
     }
 
     if (loading) {
@@ -628,6 +634,33 @@ const DashboardPage = () => {
                             </div>
                         )}
                     </div>
+                </div>
+            </div>
+
+            {/* Announcements Section */}
+            <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20 dark:border-slate-700/50">
+                <div className="px-6 py-6 sm:p-8 space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center">
+                                <Megaphone className="h-6 w-6 mr-3 text-blue-600 dark:text-blue-400" />
+                                Announcements
+                            </h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                Stay on top of updates from your mentors and administrators.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleAnnouncementRefresh}
+                            className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-slate-100/60 dark:bg-slate-700/60 hover:bg-slate-200/60 dark:hover:bg-slate-600/60 transition-all duration-200 text-sm font-medium text-slate-600 dark:text-slate-300"
+                        >
+                            <RefreshCcw className="h-4 w-4" />
+                            <span>Refresh Feed</span>
+                        </button>
+                    </div>
+
+                    <AnnouncementFeed key={announcementRefreshKey} showHeader={false} />
                 </div>
             </div>
         </div>
