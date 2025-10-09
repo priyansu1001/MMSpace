@@ -11,7 +11,9 @@ import {
     X,
     Check,
     ChevronLeft,
-    Send
+    Send,
+    Heart,
+    MessageSquare
 } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -153,11 +155,15 @@ const AnnouncementHistory = ({ announcements = [], selectedAnnouncement, onClose
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {displayAnnouncements.map(announcement => (
-                            <div 
-                                key={announcement._id} 
-                                className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700"
-                            >
+                        {displayAnnouncements.map(announcement => {
+                            const likesCount = announcement.likes?.length || 0;
+                            const commentsCount = announcement.comments?.length || 0;
+
+                            return (
+                                <div
+                                    key={announcement._id}
+                                    className="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden border border-slate-200 dark:border-slate-700"
+                                >
                                 {editingAnnouncement === announcement._id ? (
                                     <div className="p-6">
                                         <div className="mb-4">
@@ -240,6 +246,73 @@ const AnnouncementHistory = ({ announcements = [], selectedAnnouncement, onClose
                                             <div className="mt-4 flex items-center text-sm text-slate-500 dark:text-slate-400">
                                                 Posted by: {announcement.authorId?.email || 'Unknown'}
                                             </div>
+
+                                            <div className="mt-3 flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+                                                <div className="flex items-center gap-2">
+                                                    <Heart
+                                                        className={`${likesCount > 0 ? 'text-rose-500' : 'text-slate-400'} h-4 w-4`}
+                                                        fill={likesCount > 0 ? 'currentColor' : 'none'}
+                                                    />
+                                                    <span className="font-medium text-slate-600 dark:text-slate-300">
+                                                        {likesCount} {likesCount === 1 ? 'Like' : 'Likes'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <MessageSquare className="h-4 w-4 text-slate-400" />
+                                                    <span className="text-slate-500 dark:text-slate-400">
+                                                        {commentsCount} {commentsCount === 1 ? 'Comment' : 'Comments'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                                        Comments
+                                                    </h4>
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                                                        {commentsCount}
+                                                    </span>
+                                                </div>
+
+                                                {announcement.comments && announcement.comments.length > 0 ? (
+                                                    <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                                                        {announcement.comments
+                                                            .slice()
+                                                            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                                                            .map(comment => (
+                                                                <div
+                                                                    key={comment._id}
+                                                                    className="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/40 border border-slate-200/70 dark:border-slate-700/70"
+                                                                >
+                                                                    <div className="flex items-center space-x-2 mb-1">
+                                                                        <span className="text-sm font-medium text-slate-800 dark:text-white">
+                                                                            {comment.userId?.email || 'Anonymous'}
+                                                                        </span>
+                                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${comment.userRole === 'mentor'
+                                                                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                                                                : comment.userRole === 'admin'
+                                                                                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                                                                                    : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                                                            }`}>
+                                                                            {comment.userRole}
+                                                                        </span>
+                                                                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                                                                            {formatDate(comment.createdAt)}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="text-sm text-slate-700 dark:text-slate-300">
+                                                                        {comment.content}
+                                                                    </p>
+                                                                </div>
+                                                            ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-sm text-slate-500 dark:text-slate-400">
+                                                        No comments yet.
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {/* Show edit/delete buttons only for mentors and if they're the author */}
@@ -285,7 +358,8 @@ const AnnouncementHistory = ({ announcements = [], selectedAnnouncement, onClose
                                     </>
                                 )}
                             </div>
-                        ))}
+                        )
+                        })}
                     </div>
                 )}
             </div>

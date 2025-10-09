@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
 import api from '../services/api'
@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from './LoadingSpinner'
 
-const AnnouncementFeed = () => {
+const AnnouncementFeed = ({ showHeader = true }) => {
     const { user, profile } = useAuth()
     const { socket } = useSocket()
     const [announcements, setAnnouncements] = useState([])
@@ -24,6 +24,8 @@ const AnnouncementFeed = () => {
     const [expandedAnnouncements, setExpandedAnnouncements] = useState(new Set())
     const [commentInputs, setCommentInputs] = useState({})
     const [loadingComments, setLoadingComments] = useState({})
+    const [likingAnnouncements, setLikingAnnouncements] = useState({})
+    const [sortOption, setSortOption] = useState('newest')
 
     useEffect(() => {
         fetchAnnouncements()
@@ -33,10 +35,12 @@ const AnnouncementFeed = () => {
         if (socket) {
             socket.on('newAnnouncement', handleNewAnnouncement)
             socket.on('newAnnouncementComment', handleNewComment)
+            socket.on('announcementLikeUpdated', handleLikeEvent)
 
             return () => {
                 socket.off('newAnnouncement', handleNewAnnouncement)
                 socket.off('newAnnouncementComment', handleNewComment)
+                socket.off('announcementLikeUpdated', handleLikeEvent)
             }
         }
     }, [socket])
@@ -57,7 +61,12 @@ const AnnouncementFeed = () => {
     const fetchAnnouncements = async () => {
         try {
             const response = await api.get('/announcements')
-            setAnnouncements(response.data.announcements || [])
+            const normalized = (response.data.announcements || []).map(announcement => ({
+                ...announcement,
+                comments: announcement.comments || [],
+                likes: announcement.likes || []
+            }))
+            setAnnouncements(normalized)
         } catch (error) {
             console.error('Error fetching announcements:', error)
             toast.error('Failed to fetch announcements')
@@ -67,14 +76,40 @@ const AnnouncementFeed = () => {
     }
 
     const handleNewAnnouncement = (announcement) => {
-        setAnnouncements(prev => [announcement, ...prev])
+        setAnnouncements(prev => [{
+            ...announcement,
+            comments: announcement.comments || [],
+            likes: announcement.likes || []
+        }, ...prev])
         toast.success('New announcement received!')
+    }
+
+    const mergeComment = (announcement, comment) => {
+        const existingComments = announcement.comments || []
+        const alreadyExists = existingComments.some(existing => existing._id === comment._id)
+
+        if (alreadyExists) {
+            return announcement
+        }
+
+        return {
+            ...announcement,
+            comments: [...existingComments, comment]
+        }
     }
 
     const handleNewComment = ({ announcementId, comment }) => {
         setAnnouncements(prev => prev.map(announcement =>
             announcement._id === announcementId
-                ? { ...announcement, comments: [...(announcement.comments || []), comment] }
+                ? mergeComment(announcement, comment)
+                : announcement
+        ))
+    }
+
+    const handleLikeEvent = ({ announcementId, likes }) => {
+        setAnnouncements(prev => prev.map(announcement =>
+            announcement._id === announcementId
+                ? { ...announcement, likes }
                 : announcement
         ))
     }
@@ -123,13 +158,11 @@ const AnnouncementFeed = () => {
             // Clear input
             setCommentInputs(prev => ({ ...prev, [announcementId]: '' }))
 
-            // Update local state
+            // Update local state without duplicating when socket event arrives
+            const newComment = response.data
             setAnnouncements(prev => prev.map(announcement =>
                 announcement._id === announcementId
-                    ? {
-                        ...announcement,
-                        comments: [...(announcement.comments || []), response.data]
-                    }
+                    ? mergeComment(announcement, newComment)
                     : announcement
             ))
 
@@ -138,6 +171,32 @@ const AnnouncementFeed = () => {
             console.error('Error adding comment:', error)
             toast.error('Failed to add comment')
         }
+    }
+
+    const handleLikeToggle = async (announcementId) => {
+        if (likingAnnouncements[announcementId]) return
+
+        try {
+            setLikingAnnouncements(prev => ({ ...prev, [announcementId]: true }))
+            const response = await api.post(`/announcements/${announcementId}/likes`)
+            const { likes } = response.data
+
+            setAnnouncements(prev => prev.map(announcement =>
+                announcement._id === announcementId
+                    ? { ...announcement, likes }
+                    : announcement
+            ))
+        } catch (error) {
+            console.error('Error toggling like:', error)
+            toast.error('Failed to update like')
+        } finally {
+            setLikingAnnouncements(prev => ({ ...prev, [announcementId]: false }))
+        }
+    }
+
+    const userHasLiked = (announcement) => {
+        if (!user) return false
+        return (announcement.likes || []).some(like => like.userId?._id === user.id)
     }
 
     const formatTime = (date) => {
@@ -174,6 +233,27 @@ const AnnouncementFeed = () => {
         }
     }
 
+    const sortedAnnouncements = useMemo(() => {
+        const list = [...announcements]
+        switch (sortOption) {
+            case 'oldest':
+                return list.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+            case 'likes':
+                return list.sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0))
+            case 'priority': {
+                const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
+                return list.sort((a, b) => {
+                    const priorityDiff = (priorityOrder[a.priority] ?? 4) - (priorityOrder[b.priority] ?? 4)
+                    if (priorityDiff !== 0) return priorityDiff
+                    return new Date(b.createdAt) - new Date(a.createdAt)
+                })
+            }
+            case 'newest':
+            default:
+                return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        }
+    }, [announcements, sortOption])
+
     if (loading) {
         return (
             <div className="flex items-center justify-center py-8">
@@ -184,19 +264,43 @@ const AnnouncementFeed = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-200 bg-clip-text text-transparent">
-                    Announcements
-                </h2>
-                <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
-                    <Megaphone className="h-4 w-4" />
-                    <span>{announcements.length} announcements</span>
+            {(showHeader || announcements.length > 0) && (
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    {showHeader && (
+                        <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-200 bg-clip-text text-transparent">
+                            Announcements
+                        </h2>
+                    )}
+                    <div className="flex-1 flex flex-wrap items-center justify-between gap-3">
+                        {showHeader && (
+                            <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
+                                <Megaphone className="h-4 w-4" />
+                                <span>{announcements.length} announcements</span>
+                            </div>
+                        )}
+                        <div className="flex items-center space-x-3">
+                            <label htmlFor="announcement-sort" className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                                Sort by
+                            </label>
+                            <select
+                                id="announcement-sort"
+                                value={sortOption}
+                                onChange={(event) => setSortOption(event.target.value)}
+                                className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                            >
+                                <option value="newest">Most Recent</option>
+                                <option value="oldest">Oldest First</option>
+                                <option value="likes">Most Liked</option>
+                                <option value="priority">Priority (High → Low)</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
 
-            {announcements.length > 0 ? (
+            {sortedAnnouncements.length > 0 ? (
                 <div className="space-y-4">
-                    {announcements.map((announcement, index) => (
+                    {sortedAnnouncements.map((announcement, index) => (
                         <div
                             key={announcement._id}
                             className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl shadow-lg rounded-3xl border border-white/20 dark:border-slate-700/50 overflow-hidden hover:shadow-xl transition-all duration-300"
@@ -261,8 +365,20 @@ const AnnouncementFeed = () => {
                                         </button>
                                     </div>
                                     <div className="flex items-center space-x-2">
-                                        <button className="p-2 rounded-full hover:bg-slate-100/50 dark:hover:bg-slate-700/50 transition-colors duration-200">
-                                            <Heart className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                                        <button
+                                            onClick={() => handleLikeToggle(announcement._id)}
+                                            disabled={likingAnnouncements[announcement._id]}
+                                            className={`flex items-center space-x-1 px-3 py-1.5 rounded-full transition-colors duration-200 ${userHasLiked(announcement)
+                                                ? 'bg-red-100/70 dark:bg-red-900/30 text-red-600 dark:text-red-300'
+                                                : 'bg-slate-100/50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-600/50'
+                                            } disabled:opacity-60 disabled:cursor-not-allowed`}
+                                        >
+                                            <Heart
+                                                className={`h-4 w-4 ${userHasLiked(announcement) ? 'fill-current' : ''}`}
+                                            />
+                                            <span className="text-xs font-medium">
+                                                {(announcement.likes || []).length}
+                                            </span>
                                         </button>
                                         <button className="p-2 rounded-full hover:bg-slate-100/50 dark:hover:bg-slate-700/50 transition-colors duration-200">
                                             <Share2 className="h-4 w-4 text-slate-500 dark:text-slate-400" />
@@ -311,7 +427,9 @@ const AnnouncementFeed = () => {
                                             </div>
                                         ) : (
                                             <div className="space-y-4">
-                                                {announcement.comments?.map((comment, commentIndex) => (
+                                                {announcement.comments?.slice()
+                                                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                                                    .map((comment, commentIndex) => (
                                                     <div
                                                         key={comment._id || commentIndex}
                                                         className="flex items-start space-x-3 p-4 rounded-2xl bg-slate-50/50 dark:bg-slate-700/30 backdrop-blur-sm"
@@ -333,7 +451,7 @@ const AnnouncementFeed = () => {
                                                                     {comment.userRole}
                                                                 </span>
                                                                 <span className="text-xs text-slate-500 dark:text-slate-400">
-                                                                    {formatTime(comment.createdAt)}
+                                                                    {new Date(comment.createdAt).toLocaleString()}
                                                                 </span>
                                                             </div>
                                                             <p className="text-slate-700 dark:text-slate-300 text-sm">

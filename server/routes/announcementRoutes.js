@@ -109,6 +109,8 @@ router.get('/', auth, async (req, res) => {
 
         const announcements = await Announcement.find(filter)
             .populate('authorId', 'email')
+            .populate('comments.userId', 'email role')
+            .populate('likes.userId', 'email role')
             .sort({ priority: -1, createdAt: -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit);
@@ -183,7 +185,7 @@ router.post('/:id/comments', auth, async (req, res) => {
         await announcement.save();
 
         // Populate the comment with user info
-        await announcement.populate('comments.userId', 'email');
+    await announcement.populate('comments.userId', 'email role');
 
         const newComment = announcement.comments[announcement.comments.length - 1];
 
@@ -216,6 +218,52 @@ router.get('/:id/comments', auth, async (req, res) => {
         res.json(announcement.comments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)));
     } catch (error) {
         console.error('Error fetching comments:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST /api/announcements/:id/likes
+// @desc    Toggle like on announcement
+// @access  Private
+router.post('/:id/likes', auth, async (req, res) => {
+    try {
+        const announcement = await Announcement.findById(req.params.id);
+
+        if (!announcement) {
+            return res.status(404).json({ message: 'Announcement not found' });
+        }
+
+        const existingIndex = announcement.likes.findIndex(like =>
+            like.userId.toString() === req.user._id.toString()
+        );
+
+        let liked = true;
+
+        if (existingIndex >= 0) {
+            announcement.likes.splice(existingIndex, 1);
+            liked = false;
+        } else {
+            announcement.likes.push({
+                userId: req.user._id,
+                userRole: req.user.role,
+                createdAt: new Date()
+            });
+        }
+
+        await announcement.save();
+        await announcement.populate('likes.userId', 'email role');
+
+        req.io.emit('announcementLikeUpdated', {
+            announcementId: announcement._id,
+            likes: announcement.likes
+        });
+
+        res.json({
+            liked,
+            likes: announcement.likes
+        });
+    } catch (error) {
+        console.error('Error toggling announcement like:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
