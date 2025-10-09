@@ -17,6 +17,10 @@ import LeavesPage from './pages/LeavesPage'
 import GrievancePage from './pages/GrievancePage'
 import AttendancePage from './pages/AttendancePage'
 import ProfilePage from './pages/ProfilePage'
+import UserManagementPage from './pages/admin/UserManagementPage'
+import MentorshipPage from './pages/admin/MentorshipPage'
+import AnalyticsPage from './pages/admin/AnalyticsPage'
+import AdminAttendancePage from './pages/admin/AttendancePage'
 import initAutoHideScrollbars from './utils/autoHideScrollbar'
 
 function App() {
@@ -40,6 +44,38 @@ function App() {
                                     element={
                                         <ProtectedRoute>
                                             <AdminEditUser />
+                                        </ProtectedRoute>
+                                    }
+                                />
+                                <Route
+                                    path="/admin/users"
+                                    element={
+                                        <ProtectedRoute>
+                                            <UserManagementPage />
+                                        </ProtectedRoute>
+                                    }
+                                />
+                                <Route
+                                    path="/admin/mentorship"
+                                    element={
+                                        <ProtectedRoute>
+                                            <MentorshipPage />
+                                        </ProtectedRoute>
+                                    }
+                                />
+                                <Route
+                                    path="/admin/analytics"
+                                    element={
+                                        <ProtectedRoute>
+                                            <AnalyticsPage />
+                                        </ProtectedRoute>
+                                    }
+                                />
+                                <Route
+                                    path="/admin/attendance"
+                                    element={
+                                        <ProtectedRoute>
+                                            <AdminAttendancePage />
                                         </ProtectedRoute>
                                     }
                                 />

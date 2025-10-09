@@ -17,7 +17,8 @@ import {
     Settings,
     Moon,
     Sun,
-    BarChart3
+    BarChart3,
+    Target
 } from 'lucide-react'
 import LogoIcon from './icons/LogoIcon'
 
@@ -35,13 +36,14 @@ const Layout = ({ children }) => {
 
     const navigation = [
         { name: 'Dashboard', href: '/dashboard', icon: Home },
-        { name: 'Users', href: '/admin/users', icon: Users, roles: ['admin'] },
-        { name: 'System', href: '/admin/system', icon: Settings, roles: ['admin'] },
+        { name: 'User Management', href: '/admin/users', icon: Users, roles: ['admin'] },
+        { name: 'Mentorship', href: '/admin/mentorship', icon: Target, roles: ['admin'] },
+        { name: 'Analytics', href: '/admin/analytics', icon: BarChart3, roles: ['admin'] },
+        { name: 'Attendance', href: '/admin/attendance', icon: Calendar, roles: ['admin'] },
         { name: 'Groups', href: '/groups', icon: Users, roles: ['mentor'] },
         { name: 'Chat', href: '/chat', icon: MessageCircle, roles: ['mentor', 'mentee'] },
         { name: 'Leaves', href: '/leaves', icon: Calendar, roles: ['mentor', 'mentee'] },
         { name: 'Grievances', href: '/grievances', icon: FileText, roles: ['mentor', 'mentee'] },
-        { name: 'Attendance', href: '/attendance', icon: BarChart3, roles: ['mentor', 'admin'] },
         { name: 'Profile', href: '/profile', icon: User },
     ]
 
